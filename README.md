@@ -96,16 +96,15 @@ npm run build
 ## 📦 部署
 
 ### Vercel部署（推荐）
-1. 连接GitHub仓库到Vercel
+1. 连接GitHub仓库到github
 2. 设置环境变量
 3. 自动部署完成
 
 ### 环境变量设置
-在Vercel项目设置中添加以下环境变量：
+在github项目设置中添加以下环境变量：
 ```
-VITE_SUPABASE_URL=https://srbhrbkwwmlkkrivbvby.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNyYmhyYmt3d21sa2tyaXZidmJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc5NDIwOTUsImV4cCI6MjA4MzUxODA5NX0.w5f-U3pzNpuuq-35ElllfgVl1Ogq8n7Ttct0ESxZ-vI
-```
+VITE_SUPABASE_URL=https://*.supabase.co
+VITE_SUPABASE_ANON_KEY=ey***
 
 ### 自定义域名绑定
 1. 在Vercel项目设置中添加域名 `www.fuxk.indevs.in`
@@ -173,7 +172,7 @@ MIT License
 
 感谢以下开源项目：
 - React
-- Vite
+- github
 - Tailwind CSS
 - Supabase
 - React Router
