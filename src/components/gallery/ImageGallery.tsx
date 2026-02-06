@@ -2,10 +2,11 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { X, ChevronLeft, ChevronRight, Maximize2, Download, Heart, Share2, AlertCircle } from 'lucide-react';
 
 // 图片数据类型定义
+// 在 ImageGallery.tsx 中找到 GalleryImage 接口
 export interface GalleryImage {
   id: string;
   url: string;
-  thumbnailUrl?: string;
+  thumbnailUrl: string; // 移除 ? 号，改为必需
   alt?: string;
   caption?: string;
   width?: number;
