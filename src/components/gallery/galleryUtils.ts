@@ -19,28 +19,25 @@ export const generateImageUrls = (
 /**
  * 处理好友动态数据，提取图片信息
  */
-
- export const extractGalleryImagesFromPosts = (posts: any[]): GalleryImage[] => {
+export const extractGalleryImagesFromPosts = (posts: any[]): GalleryImage[] => {
   return posts.flatMap(post => {
-    // ⚠️ 关键修复：使用 image_urls 而不是 images
+    // 关键：使用 image_urls 而不是 images
     const postImages = post.image_urls || [];
     
     if (!Array.isArray(postImages) || postImages.length === 0) return [];
     
     return postImages.map((img: any, index: number) => {
       // 处理不同的数据格式
-      let url, thumbnailUrl, width, height;
+      let url: string, thumbnailUrl: string, width: number = 0, height: number = 0;
       
       if (typeof img === 'string') {
         // 如果是字符串格式
         url = img;
         thumbnailUrl = img;
-        width = 0;
-        height = 0;
       } else if (img && typeof img === 'object') {
         // 如果是对象格式
-        url = img.url || img;
-        thumbnailUrl = img.thumbnail_url || img.thumbnailUrl || img.url || img;
+        url = img.url || '';
+        thumbnailUrl = img.thumbnail_url || img.thumbnailUrl || img.url || '';
         width = img.width || 0;
         height = img.height || 0;
       } else {
@@ -54,7 +51,7 @@ export const generateImageUrls = (
       return {
         id: `${post.id}-${index}`,
         url: url,
-        thumbnailUrl: thumbnailUrl,
+        thumbnailUrl: thumbnailUrl, // ⚠️ 确保有值，不能是undefined
         alt: post.content || `来自 ${post.user?.name || '好友'} 的图片`,
         caption: post.content,
         width: width,
@@ -68,7 +65,7 @@ export const generateImageUrls = (
         likes: post.likes_count || 0,
         isLiked: post.is_liked || false
       };
-    }).filter((item): item is GalleryImage => item !== null); // 过滤掉null值
+    }).filter((item): item is GalleryImage => item !== null && item.thumbnailUrl !== undefined);
   });
 };
 
