@@ -56,7 +56,7 @@ export const preloadImages = (images: GalleryImage[]): Promise<void[]> => {
     });
   });
   
-  return Promise.all(pictures);
+  return Promise.all(promises);
 };
 
 /**
