@@ -19,27 +19,56 @@ export const generateImageUrls = (
 /**
  * 处理好友动态数据，提取图片信息
  */
-export const extractGalleryImagesFromPosts = (posts: any[]): GalleryImage[] => {
+
+ export const extractGalleryImagesFromPosts = (posts: any[]): GalleryImage[] => {
   return posts.flatMap(post => {
-    if (!post.images || post.images.length === 0) return [];
+    // ⚠️ 关键修复：使用 image_urls 而不是 images
+    const postImages = post.image_urls || [];
     
-    return post.images.map((img: any, index: number) => ({
-      id: `${post.id}-${index}`,
-      url: img.url,
-      thumbnailUrl: img.thumbnail_url || img.url,
-      alt: post.content || `来自 ${post.user?.name} 的图片`,
-      caption: post.content,
-      width: img.width,
-      height: img.height,
-      uploader: {
-        id: post.user_id,
-        name: post.user?.name || '好友',
-        avatar: post.user?.avatar_url
-      },
-      createdAt: post.created_at,
-      likes: post.likes_count,
-      isLiked: post.is_liked
-    }));
+    if (!Array.isArray(postImages) || postImages.length === 0) return [];
+    
+    return postImages.map((img: any, index: number) => {
+      // 处理不同的数据格式
+      let url, thumbnailUrl, width, height;
+      
+      if (typeof img === 'string') {
+        // 如果是字符串格式
+        url = img;
+        thumbnailUrl = img;
+        width = 0;
+        height = 0;
+      } else if (img && typeof img === 'object') {
+        // 如果是对象格式
+        url = img.url || img;
+        thumbnailUrl = img.thumbnail_url || img.thumbnailUrl || img.url || img;
+        width = img.width || 0;
+        height = img.height || 0;
+      } else {
+        // 其他格式，跳过
+        return null;
+      }
+      
+      // 确保URL有效
+      if (!url) return null;
+      
+      return {
+        id: `${post.id}-${index}`,
+        url: url,
+        thumbnailUrl: thumbnailUrl,
+        alt: post.content || `来自 ${post.user?.name || '好友'} 的图片`,
+        caption: post.content,
+        width: width,
+        height: height,
+        uploader: {
+          id: post.user_id,
+          name: post.user?.name || '好友',
+          avatar: post.user?.avatar_url
+        },
+        createdAt: post.created_at,
+        likes: post.likes_count || 0,
+        isLiked: post.is_liked || false
+      };
+    }).filter((item): item is GalleryImage => item !== null); // 过滤掉null值
   });
 };
 
