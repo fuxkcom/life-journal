@@ -1,0 +1,61 @@
+/* 画廊组件动画 */
+.gallery-enter {
+  opacity: 0;
+  transform: scale(0.9);
+}
+
+.gallery-enter-active {
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity 300ms, transform 300ms;
+}
+
+.gallery-exit {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.gallery-exit-active {
+  opacity: 0;
+  transform: scale(0.9);
+  transition: opacity 300ms, transform 300ms;
+}
+
+/* 图片加载动画 */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.image-loading {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite linear;
+}
+
+/* 响应式调整 */
+@media (max-width: 640px) {
+  .gallery-controls {
+    padding: 0.5rem;
+  }
+  
+  .thumbnail-container {
+    padding: 0.25rem;
+  }
+  
+  .thumbnail-item {
+    width: 48px;
+    height: 48px;
+  }
+}
+
+/* 暗色模式适配 */
+@media (prefers-color-scheme: dark) {
+  .image-loading {
+    background: linear-gradient(90deg, #2d2d2d 25%, #3d3d3d 50%, #2d2d2d 75%);
+  }
+}
