@@ -1,3 +1,49 @@
+/* 缩略图容器 */
+.thumbnail-container {
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.thumbnail-container:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 
+              0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* 大图浏览模态框 */
+.gallery-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* 响应式调整 */
+@media (max-width: 640px) {
+  .thumbnail-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
+  
+  .gallery-controls {
+    padding: 0.75rem;
+  }
+}
+
+/* 缩放过渡 */
+.zoom-transition {
+  transition: transform 0.2s ease-out;
+}
+
 /* 画廊组件动画 */
 .gallery-enter {
   opacity: 0;
