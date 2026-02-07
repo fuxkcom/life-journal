@@ -17,44 +17,49 @@ export const generateImageUrls = (
 
 /**
  * 处理好友动态数据，提取图片信息
+ * 重要：现在处理的是 string[] 格式的 image_urls
  */
 export const extractGalleryImagesFromPosts = (posts: any[]): GalleryImage[] => {
   return posts.flatMap(post => {
+    // 获取图片数组，处理 null 值
     const postImages = post.image_urls || [];
     
-    if (!Array.isArray(postImages) || postImages.length === 0) return [];
+    if (!Array.isArray(postImages) || postImages.length === 0) {
+      return [];
+    }
     
-    const galleryImages = postImages.map((img: any, index: number) => {
-      let url: string, thumbnailUrl: string, width: number = 0, height: number = 0;
+    const galleryImages = postImages.map((imgItem: any, index: number): GalleryImage | null => {
+      let url: string = '';
+      let thumbnailUrl: string = '';
       
-      if (typeof img === 'string') {
-        url = img;
-        thumbnailUrl = img;
-      } else if (img && typeof img === 'object') {
-        url = img.url || '';
-        thumbnailUrl = img.thumbnail_url || img.thumbnailUrl || img.url || '';
-        width = img.width || 0;
-        height = img.height || 0;
-      } else {
+      // 情况1：imgItem 是字符串（直接是URL）
+      if (typeof imgItem === 'string') {
+        url = imgItem;
+        thumbnailUrl = imgItem; // 同一URL作为缩略图
+      } 
+      // 情况2：imgItem 是对象（包含 url 等属性）
+      else if (imgItem && typeof imgItem === 'object') {
+        url = imgItem.url || '';
+        thumbnailUrl = imgItem.thumbnail_url || imgItem.thumbnailUrl || url;
+      }
+      
+      // 如果URL无效，跳过
+      if (!url || !url.startsWith('http')) {
+        console.warn(`无效的图片URL: ${url}`, imgItem);
         return null;
       }
       
-      if (!url) return null;
-      
+      // 构建 GalleryImage 对象
       const galleryImage: GalleryImage = {
         id: `${post.id}-${index}`,
         url: url,
         thumbnailUrl: thumbnailUrl,
       };
       
+      // 添加可选字段
       if (post.content) {
         galleryImage.alt = post.content;
         galleryImage.caption = post.content;
-      }
-      
-      if (width > 0 || height > 0) {
-        galleryImage.width = width;
-        galleryImage.height = height;
       }
       
       if (post.user_id) {
@@ -77,7 +82,8 @@ export const extractGalleryImagesFromPosts = (posts: any[]): GalleryImage[] => {
       return galleryImage;
     });
     
-    return galleryImages.filter(item => item !== null) as GalleryImage[];
+    // 过滤掉 null 值
+    return galleryImages.filter((item): item is GalleryImage => item !== null);
   });
 };
 
@@ -116,4 +122,30 @@ export const downloadImage = async (imageUrl: string, filename?: string): Promis
     console.error('下载图片失败:', error);
     throw error;
   }
+};
+
+/**
+ * 调试函数：检查数据格式
+ */
+export const debugImageData = (posts: any[]): void => {
+  console.log('=== 图片数据调试 ===');
+  posts.forEach((post, postIndex) => {
+    console.log(`帖子 ${postIndex} (ID: ${post.id}):`);
+    console.log(' 内容:', post.content);
+    console.log(' image_urls 类型:', typeof post.image_urls);
+    console.log(' 是数组吗:', Array.isArray(post.image_urls));
+    console.log(' 数组长度:', Array.isArray(post.image_urls) ? post.image_urls.length : 'N/A');
+    
+    if (Array.isArray(post.image_urls) && post.image_urls.length > 0) {
+      post.image_urls.forEach((item: any, imgIndex: number) => {
+        console.log(`  图片 ${imgIndex}:`, {
+          类型: typeof item,
+          值: item,
+          是字符串: typeof item === 'string',
+          是对象: typeof item === 'object' && item !== null
+        });
+      });
+    }
+  });
+  console.log('==================');
 };
