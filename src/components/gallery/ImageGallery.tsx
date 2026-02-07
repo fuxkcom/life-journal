@@ -2,11 +2,10 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { X, ChevronLeft, ChevronRight, Maximize2, Download, Heart, Share2, AlertCircle } from 'lucide-react';
 
 // 图片数据类型定义
-// 在 ImageGallery.tsx 中找到 GalleryImage 接口
 export interface GalleryImage {
   id: string;
   url: string;
-  thumbnailUrl: string; // 移除 ? 号，改为必需
+  thumbnailUrl: string;
   alt?: string;
   caption?: string;
   width?: number;
@@ -28,8 +27,9 @@ interface ImageGalleryProps {
   showThumbnails?: boolean;
   showControls?: boolean;
   showInfo?: boolean;
-  aspectRatio?: 'square' | 'wide' | 'auto';
+  aspectRatio?: 'square' | 'wide' | 'auto' | 'contain';
   maxHeight?: string;
+  maxWidth?: string;
   onLike?: (imageId: string) => void;
   onShare?: (imageId: string) => void;
   onDownload?: (imageId: string) => void;
@@ -42,8 +42,9 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   showThumbnails = true,
   showControls = true,
   showInfo = true,
-  aspectRatio = 'auto',
-  maxHeight = '90vh',
+  aspectRatio = 'contain',
+  maxHeight = '80vh',
+  maxWidth = '90vw',
   onLike,
   onShare,
   onDownload
@@ -56,37 +57,92 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   const [imageLoadStatus, setImageLoadStatus] = useState<Record<string, boolean>>({});
   const [zoomLevel, setZoomLevel] = useState(1);
   const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 });
+  const [isZoomed, setIsZoomed] = useState(false);
   
   const galleryRef = useRef<HTMLDivElement>(null);
+  const imageContainerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   
   // 当前图片
   const currentImage = images[currentIndex];
 
-  
-  // 添加鼠标滚轮缩放
-useEffect(() => {
-  const handleWheel = (e: WheelEvent) => {
+  // 重置图片位置和缩放
+  const resetImageTransform = useCallback(() => {
+    setZoomLevel(1);
+    setImagePosition({ x: 0, y: 0 });
+    setIsZoomed(false);
+  }, []);
+
+  // 处理鼠标滚轮缩放
+  const handleWheel = useCallback((e: WheelEvent) => {
     if (!galleryRef.current || !isFullscreen) return;
     
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.1 : 0.1;
       setZoomLevel(prev => {
-        const newZoom = prev - e.deltaY * 0.01;
-        return Math.max(0.5, Math.min(5, newZoom));
+        const newZoom = prev + delta;
+        const clampedZoom = Math.max(0.5, Math.min(3, newZoom));
+        if (clampedZoom !== 1) {
+          setIsZoomed(true);
+        }
+        return clampedZoom;
       });
     }
-  };
-  
-  window.addEventListener('wheel', handleWheel, { passive: false });
-  return () => window.removeEventListener('wheel', handleWheel);
-}, [isFullscreen]);
+  }, [isFullscreen]);
 
-// 双击缩放功能
-const handleImageDoubleClick = () => {
-  setZoomLevel(prev => prev === 1 ? 2 : 1);
-};
+  // 处理鼠标拖动
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (zoomLevel <= 1) return;
+    
+    e.preventDefault();
+    setIsDragging(true);
+    setDragStart({
+      x: e.clientX - imagePosition.x,
+      y: e.clientY - imagePosition.y
+    });
+  }, [zoomLevel, imagePosition]);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDragging || zoomLevel <= 1) return;
+    
+    e.preventDefault();
+    const newX = e.clientX - dragStart.x;
+    const newY = e.clientY - dragStart.y;
+    
+    // 限制拖动范围，防止图片被拖出可视区域
+    const container = imageContainerRef.current;
+    const image = imageRef.current;
+    if (container && image) {
+      const containerRect = container.getBoundingClientRect();
+      const imageRect = image.getBoundingClientRect();
       
+      const maxX = Math.max(0, (imageRect.width * zoomLevel - containerRect.width) / 2);
+      const maxY = Math.max(0, (imageRect.height * zoomLevel - containerRect.height) / 2);
+      
+      setImagePosition({
+        x: Math.max(-maxX, Math.min(maxX, newX)),
+        y: Math.max(-maxY, Math.min(maxY, newY))
+      });
+    }
+  }, [isDragging, dragStart, zoomLevel]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  // 双击缩放功能
+  const handleImageDoubleClick = useCallback(() => {
+    if (zoomLevel === 1) {
+      setZoomLevel(2);
+      setIsZoomed(true);
+    } else {
+      resetImageTransform();
+    }
+  }, [zoomLevel, resetImageTransform]);
+
   // 处理键盘导航
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -94,7 +150,11 @@ const handleImageDoubleClick = () => {
       
       switch (e.key) {
         case 'Escape':
-          onClose?.();
+          if (isZoomed) {
+            resetImageTransform();
+          } else {
+            onClose?.();
+          }
           break;
         case 'ArrowLeft':
           goToPrevious();
@@ -106,34 +166,54 @@ const handleImageDoubleClick = () => {
           e.preventDefault();
           toggleFullscreen();
           break;
+        case '0':
+        case 'r':
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            resetImageTransform();
+          }
+          break;
       }
     };
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentIndex, images.length]);
+  }, [currentIndex, images.length, isZoomed, resetImageTransform, onClose]);
+
+  // 添加事件监听器
+  useEffect(() => {
+    window.addEventListener('wheel', handleWheel, { passive: false });
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    
+    return () => {
+      window.removeEventListener('wheel', handleWheel);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [handleWheel, handleMouseMove, handleMouseUp]);
 
   // 图片变化时重置状态
   useEffect(() => {
     setCurrentIndex(initialIndex);
-    setZoomLevel(1);
+    resetImageTransform();
     setIsLoading(true);
-  }, [initialIndex, images]);
+  }, [initialIndex, images, resetImageTransform]);
 
   // 导航函数
   const goToPrevious = () => {
     setCurrentIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1));
-    setZoomLevel(1);
+    resetImageTransform();
   };
 
   const goToNext = () => {
     setCurrentIndex((prev) => (prev < images.length - 1 ? prev + 1 : 0));
-    setZoomLevel(1);
+    resetImageTransform();
   };
 
   const goToImage = (index: number) => {
     setCurrentIndex(index);
-    setZoomLevel(1);
+    resetImageTransform();
   };
 
   // 全屏切换
@@ -149,15 +229,24 @@ const handleImageDoubleClick = () => {
 
   // 缩放控制
   const handleZoomIn = () => {
-    setZoomLevel((prev) => Math.min(prev + 0.25, 3));
+    setZoomLevel((prev) => {
+      const newZoom = Math.min(prev + 0.25, 3);
+      if (newZoom !== 1) {
+        setIsZoomed(true);
+      }
+      return newZoom;
+    });
   };
 
   const handleZoomOut = () => {
-    setZoomLevel((prev) => Math.max(prev - 0.25, 0.5));
-  };
-
-  const handleZoomReset = () => {
-    setZoomLevel(1);
+    setZoomLevel((prev) => {
+      const newZoom = Math.max(prev - 0.25, 0.5);
+      if (newZoom === 1) {
+        setIsZoomed(false);
+        setImagePosition({ x: 0, y: 0 });
+      }
+      return newZoom;
+    });
   };
 
   // 图片加载处理
@@ -175,25 +264,49 @@ const handleImageDoubleClick = () => {
 
   // 点击背景关闭（如果启用）
   const handleBackdropClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
+    if (e.target === e.currentTarget && !isZoomed) {
       onClose?.();
     }
   };
 
   // 获取图片显示尺寸
-  const getImageDimensions = () => {
-    if (!currentImage) return { width: 'auto', height: 'auto' };
+  const getImageContainerStyle = () => {
+    if (aspectRatio === 'contain') {
+      return {
+        maxWidth: maxWidth,
+        maxHeight: maxHeight,
+        width: 'auto',
+        height: 'auto',
+      };
+    }
     
     const aspectRatios = {
       square: '1/1',
       wide: '16/9',
-      auto: `${currentImage.width || 4}/${currentImage.height || 3}`
+      auto: currentImage?.width && currentImage?.height 
+        ? `${currentImage.width}/${currentImage.height}`
+        : '4/3'
     };
     
     return {
-      aspectRatio: aspectRatios[aspectRatio],
-      maxHeight: maxHeight
+      aspectRatio: aspectRatios[aspectRatio] || 'auto',
+      maxWidth: maxWidth,
+      maxHeight: maxHeight,
     };
+  };
+
+  // 获取图片样式
+  const getImageStyle = () => {
+    const baseStyle = {
+      transform: `scale(${zoomLevel}) translate(${imagePosition.x}px, ${imagePosition.y}px)`,
+      cursor: zoomLevel > 1 ? 'grab' : 'default',
+    };
+    
+    if (isDragging) {
+      return { ...baseStyle, cursor: 'grabbing' };
+    }
+    
+    return baseStyle;
   };
 
   // 如果没有图片
@@ -230,8 +343,9 @@ const handleImageDoubleClick = () => {
             <>
               <button
                 onClick={handleZoomOut}
-                className="p-2 text-white hover:bg-white/20 rounded-full transition-colors"
+                className="p-2 text-white hover:bg-white/20 rounded-full transition-colors disabled:opacity-50"
                 title="缩小"
+                disabled={zoomLevel <= 0.5}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
@@ -239,7 +353,7 @@ const handleImageDoubleClick = () => {
               </button>
               
               <button
-                onClick={handleZoomReset}
+                onClick={resetImageTransform}
                 className="px-3 py-1 text-sm text-white hover:bg-white/20 rounded-full transition-colors"
               >
                 {Math.round(zoomLevel * 100)}%
@@ -247,8 +361,9 @@ const handleImageDoubleClick = () => {
               
               <button
                 onClick={handleZoomIn}
-                className="p-2 text-white hover:bg-white/20 rounded-full transition-colors"
+                className="p-2 text-white hover:bg-white/20 rounded-full transition-colors disabled:opacity-50"
                 title="放大"
+                disabled={zoomLevel >= 3}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -278,13 +393,11 @@ const handleImageDoubleClick = () => {
       </div>
 
       {/* 主图片展示区 */}
-      <div className="flex items-center justify-center min-h-[60vh] p-4 md:p-8">
+      <div className="flex items-center justify-center h-[calc(100vh-200px)] p-4 md:p-8">
         <div 
-          className="relative transition-transform duration-200"
-          style={{ 
-            transform: `scale(${zoomLevel})`,
-            ...getImageDimensions()
-          }}
+          ref={imageContainerRef}
+          className="relative flex items-center justify-center transition-all duration-200 overflow-hidden"
+          style={getImageContainerStyle()}
         >
           {isLoading && (
             <div className="absolute inset-0 flex items-center justify-center">
@@ -303,9 +416,12 @@ const handleImageDoubleClick = () => {
               ref={imageRef}
               src={currentImage.url}
               alt={currentImage.alt || `图片 ${currentIndex + 1}`}
-              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl select-none"
               onLoad={() => handleImageLoad(currentImage.id)}
               onError={() => handleImageError(currentImage.id)}
+              onDoubleClick={handleImageDoubleClick}
+              onMouseDown={handleMouseDown}
+              style={getImageStyle()}
               draggable={false}
             />
           )}
@@ -315,7 +431,7 @@ const handleImageDoubleClick = () => {
             <>
               <button
                 onClick={goToPrevious}
-                className="absolute left-4 top-1/2 -translate-y-1/2 p-3 text-white hover:bg-white/20 rounded-full transition-colors backdrop-blur-sm"
+                className="absolute left-4 top-1/2 -translate-y-1/2 p-3 text-white hover:bg-white/20 rounded-full transition-colors backdrop-blur-sm z-10"
                 title="上一张"
               >
                 <ChevronLeft className="w-6 h-6" />
@@ -323,12 +439,19 @@ const handleImageDoubleClick = () => {
               
               <button
                 onClick={goToNext}
-                className="absolute right-4 top-1/2 -translate-y-1/2 p-3 text-white hover:bg-white/20 rounded-full transition-colors backdrop-blur-sm"
+                className="absolute right-4 top-1/2 -translate-y-1/2 p-3 text-white hover:bg-white/20 rounded-full transition-colors backdrop-blur-sm z-10"
                 title="下一张"
               >
                 <ChevronRight className="w-6 h-6" />
               </button>
             </>
+          )}
+          
+          {/* 缩放提示 */}
+          {isZoomed && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-black/50 text-white text-sm rounded-full backdrop-blur-sm">
+              双击图片或按 Esc 键重置缩放
+            </div>
           )}
         </div>
       </div>
