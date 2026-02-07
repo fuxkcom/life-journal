@@ -62,7 +62,31 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   
   // 当前图片
   const currentImage = images[currentIndex];
+
   
+  // 添加鼠标滚轮缩放
+useEffect(() => {
+  const handleWheel = (e: WheelEvent) => {
+    if (!galleryRef.current || !isFullscreen) return;
+    
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      setZoomLevel(prev => {
+        const newZoom = prev - e.deltaY * 0.01;
+        return Math.max(0.5, Math.min(5, newZoom));
+      });
+    }
+  };
+  
+  window.addEventListener('wheel', handleWheel, { passive: false });
+  return () => window.removeEventListener('wheel', handleWheel);
+}, [isFullscreen]);
+
+// 双击缩放功能
+const handleImageDoubleClick = () => {
+  setZoomLevel(prev => prev === 1 ? 2 : 1);
+};
+      
   // 处理键盘导航
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
