@@ -10,37 +10,50 @@ export const generateImageUrls = (
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const url = `${supabaseUrl}/storage/v1/object/public/${bucketName}/${storagePath}`;
   
-  const thumbnailUrl = `${url}?width=300&height=300&resize=cover&quality=80`;
+  const thumbnailUrl = `${url}?width=400&height=400&resize=cover&quality=85`;
   
   return { url, thumbnailUrl };
 };
 
 /**
+ * 智能生成缩略图URL
+ */
+export const generateThumbnailUrl = (
+  originalUrl: string, 
+  size: { width: number; height: number } = { width: 400, height: 400 }
+): string => {
+  if (!originalUrl) return '';
+  
+  // 如果是Supabase Storage的URL，添加转换参数
+  if (originalUrl.includes('supabase.co/storage')) {
+    return `${originalUrl}?width=${size.width}&height=${size.height}&resize=cover&quality=85`;
+  }
+  
+  return originalUrl;
+};
+
+/**
  * 处理好友动态数据，提取图片信息
- * 重要：现在处理的是 string[] 格式的 image_urls
  */
 export const extractGalleryImagesFromPosts = (posts: any[]): GalleryImage[] => {
   return posts.flatMap(post => {
-    // 获取图片数组，处理 null 值
     const postImages = post.image_urls || [];
     
-    if (!Array.isArray(postImages) || postImages.length === 0) {
-      return [];
-    }
+    if (!Array.isArray(postImages) || postImages.length === 0) return [];
     
     const galleryImages = postImages.map((imgItem: any, index: number): GalleryImage | null => {
       let url: string = '';
       let thumbnailUrl: string = '';
       
-      // 情况1：imgItem 是字符串（直接是URL）
+      // 情况1：imgItem是字符串（直接是URL）
       if (typeof imgItem === 'string') {
         url = imgItem;
-        thumbnailUrl = imgItem; // 同一URL作为缩略图
+        thumbnailUrl = generateThumbnailUrl(imgItem);
       } 
-      // 情况2：imgItem 是对象（包含 url 等属性）
+      // 情况2：imgItem是对象（包含url等属性）
       else if (imgItem && typeof imgItem === 'object') {
         url = imgItem.url || '';
-        thumbnailUrl = imgItem.thumbnail_url || imgItem.thumbnailUrl || url;
+        thumbnailUrl = imgItem.thumbnail_url || imgItem.thumbnailUrl || generateThumbnailUrl(url);
       }
       
       // 如果URL无效，跳过
@@ -49,11 +62,11 @@ export const extractGalleryImagesFromPosts = (posts: any[]): GalleryImage[] => {
         return null;
       }
       
-      // 构建 GalleryImage 对象
+      // 构建GalleryImage对象
       const galleryImage: GalleryImage = {
         id: `${post.id}-${index}`,
         url: url,
-        thumbnailUrl: thumbnailUrl,
+        thumbnailUrl: thumbnailUrl || url, // 确保thumbnailUrl有值
       };
       
       // 添加可选字段
@@ -82,7 +95,7 @@ export const extractGalleryImagesFromPosts = (posts: any[]): GalleryImage[] => {
       return galleryImage;
     });
     
-    // 过滤掉 null 值
+    // 过滤掉null值
     return galleryImages.filter((item): item is GalleryImage => item !== null);
   });
 };
@@ -108,16 +121,27 @@ export const preloadImages = (images: GalleryImage[]): Promise<void[]> => {
  */
 export const downloadImage = async (imageUrl: string, filename?: string): Promise<void> => {
   try {
+    if (!imageUrl) {
+      throw new Error('图片URL不能为空');
+    }
+    
     const response = await fetch(imageUrl);
+    if (!response.ok) {
+      throw new Error(`下载失败: ${response.status} ${response.statusText}`);
+    }
+    
     const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
+    const objectUrl = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
-    a.download = filename || `image-${Date.now()}.jpg`;
+    a.href = objectUrl;
+    a.download = filename || `life-journal-${Date.now()}.jpg`;
     document.body.appendChild(a);
     a.click();
-    window.URL.revokeObjectURL(url);
+    
+    // 清理
+    window.URL.revokeObjectURL(objectUrl);
     document.body.removeChild(a);
+    
   } catch (error) {
     console.error('下载图片失败:', error);
     throw error;
@@ -131,45 +155,22 @@ export const debugImageData = (posts: any[]): void => {
   console.log('=== 图片数据调试 ===');
   posts.forEach((post, postIndex) => {
     console.log(`帖子 ${postIndex} (ID: ${post.id}):`);
-    console.log(' 内容:', post.content);
-    console.log(' image_urls 类型:', typeof post.image_urls);
-    console.log(' 是数组吗:', Array.isArray(post.image_urls));
-    console.log(' 数组长度:', Array.isArray(post.image_urls) ? post.image_urls.length : 'N/A');
+    console.log('  内容:', post.content);
+    console.log('  image_urls类型:', typeof post.image_urls);
+    console.log('  是数组吗:', Array.isArray(post.image_urls));
     
     if (Array.isArray(post.image_urls) && post.image_urls.length > 0) {
+      console.log('  数组长度:', post.image_urls.length);
       post.image_urls.forEach((item: any, imgIndex: number) => {
         console.log(`  图片 ${imgIndex}:`, {
           类型: typeof item,
-          值: item,
           是字符串: typeof item === 'string',
-          是对象: typeof item === 'object' && item !== null
+          值: typeof item === 'string' ? item.substring(0, 50) + '...' : item
         });
       });
+    } else {
+      console.log('  无图片数据');
     }
   });
   console.log('==================');
 };
-
-/**
- * 智能生成缩略图URL
- */
-export const generateThumbnailUrl = (
-  originalUrl: string, 
-  size: { width: number; height: number } = { width: 400, height: 400 }
-): string => {
-  // 如果是Supabase Storage的URL，可以添加转换参数
-  if (originalUrl.includes('supabase.co/storage')) {
-    return `${originalUrl}?width=${size.width}&height=${size.height}&resize=cover&quality=80`;
-  }
-  
-  // 其他图床或URL，可以尝试添加通用参数或使用图片服务
-  if (originalUrl.includes('unsplash') || originalUrl.includes('cloudinary')) {
-    return originalUrl.replace(/w=\d+/, `w=${size.width}`);
-  }
-  
-  // 普通URL，直接返回
-  return originalUrl;
-};
-
-// 修改 extractGalleryImagesFromPosts 函数中的thumbnailUrl生成
-const thumbnailUrl = generateThumbnailUrl(url, { width: 400, height: 400 });
