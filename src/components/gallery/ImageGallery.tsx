@@ -30,6 +30,7 @@ interface ImageGalleryProps {
   aspectRatio?: 'square' | 'wide' | 'auto' | 'contain';
   maxHeight?: string;
   maxWidth?: string;
+  defaultZoom?: number; // 添加默认缩放比例参数
   onLike?: (imageId: string) => void;
   onShare?: (imageId: string) => void;
   onDownload?: (imageId: string) => void;
@@ -45,6 +46,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   aspectRatio = 'contain',
   maxHeight = '80vh',
   maxWidth = '90vw',
+  defaultZoom = 0.8, // 默认缩放为80%
   onLike,
   onShare,
   onDownload
@@ -55,7 +57,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [imageLoadStatus, setImageLoadStatus] = useState<Record<string, boolean>>({});
-  const [zoomLevel, setZoomLevel] = useState(1);
+  const [zoomLevel, setZoomLevel] = useState(defaultZoom); // 使用默认缩放
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 });
@@ -70,10 +72,10 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
 
   // 重置图片位置和缩放
   const resetImageTransform = useCallback(() => {
-    setZoomLevel(1);
+    setZoomLevel(defaultZoom);
     setImagePosition({ x: 0, y: 0 });
     setIsZoomed(false);
-  }, []);
+  }, [defaultZoom]);
 
   // 处理鼠标滚轮缩放
   const handleWheel = useCallback((e: WheelEvent) => {
@@ -81,21 +83,21 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
     
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
-      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      const delta = e.deltaY > 0 ? -0.05 : 0.05; // 减小缩放步长
       setZoomLevel(prev => {
         const newZoom = prev + delta;
-        const clampedZoom = Math.max(0.5, Math.min(3, newZoom));
-        if (clampedZoom !== 1) {
+        const clampedZoom = Math.max(0.1, Math.min(3, newZoom)); // 最小缩放到10%
+        if (clampedZoom !== defaultZoom) {
           setIsZoomed(true);
         }
         return clampedZoom;
       });
     }
-  }, [isFullscreen]);
+  }, [isFullscreen, defaultZoom]);
 
   // 处理鼠标拖动
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (zoomLevel <= 1) return;
+    if (zoomLevel <= defaultZoom) return;
     
     e.preventDefault();
     setIsDragging(true);
@@ -103,10 +105,10 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
       x: e.clientX - imagePosition.x,
       y: e.clientY - imagePosition.y
     });
-  }, [zoomLevel, imagePosition]);
+  }, [zoomLevel, defaultZoom, imagePosition]);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isDragging || zoomLevel <= 1) return;
+    if (!isDragging || zoomLevel <= defaultZoom) return;
     
     e.preventDefault();
     const newX = e.clientX - dragStart.x;
@@ -127,7 +129,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
         y: Math.max(-maxY, Math.min(maxY, newY))
       });
     }
-  }, [isDragging, dragStart, zoomLevel]);
+  }, [isDragging, dragStart, zoomLevel, defaultZoom]);
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
@@ -135,13 +137,13 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
 
   // 双击缩放功能
   const handleImageDoubleClick = useCallback(() => {
-    if (zoomLevel === 1) {
+    if (Math.abs(zoomLevel - defaultZoom) < 0.01) {
       setZoomLevel(2);
       setIsZoomed(true);
     } else {
       resetImageTransform();
     }
-  }, [zoomLevel, resetImageTransform]);
+  }, [zoomLevel, defaultZoom, resetImageTransform]);
 
   // 处理键盘导航
   useEffect(() => {
@@ -171,6 +173,19 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
           if (e.ctrlKey || e.metaKey) {
             e.preventDefault();
             resetImageTransform();
+          }
+          break;
+        case '+':
+        case '=':
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            handleZoomIn();
+          }
+          break;
+        case '-':
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            handleZoomOut();
           }
           break;
       }
@@ -230,8 +245,8 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   // 缩放控制
   const handleZoomIn = () => {
     setZoomLevel((prev) => {
-      const newZoom = Math.min(prev + 0.25, 3);
-      if (newZoom !== 1) {
+      const newZoom = Math.min(prev + 0.1, 3); // 减小缩放步长
+      if (Math.abs(newZoom - defaultZoom) > 0.01) {
         setIsZoomed(true);
       }
       return newZoom;
@@ -240,8 +255,8 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
 
   const handleZoomOut = () => {
     setZoomLevel((prev) => {
-      const newZoom = Math.max(prev - 0.25, 0.5);
-      if (newZoom === 1) {
+      const newZoom = Math.max(prev - 0.1, 0.1); // 减小缩放步长，最小到10%
+      if (Math.abs(newZoom - defaultZoom) < 0.01) {
         setIsZoomed(false);
         setImagePosition({ x: 0, y: 0 });
       }
@@ -269,7 +284,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
     }
   };
 
-  // 获取图片显示尺寸
+  // 获取图片容器样式
   const getImageContainerStyle = () => {
     if (aspectRatio === 'contain') {
       return {
@@ -299,7 +314,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   const getImageStyle = () => {
     const baseStyle = {
       transform: `scale(${zoomLevel}) translate(${imagePosition.x}px, ${imagePosition.y}px)`,
-      cursor: zoomLevel > 1 ? 'grab' : 'default',
+      cursor: zoomLevel > defaultZoom ? 'grab' : 'default',
     };
     
     if (isDragging) {
@@ -307,6 +322,11 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
     }
     
     return baseStyle;
+  };
+
+  // 获取实际显示百分比（相对于原始尺寸）
+  const getDisplayPercentage = () => {
+    return Math.round(zoomLevel * 100);
   };
 
   // 如果没有图片
@@ -344,8 +364,8 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
               <button
                 onClick={handleZoomOut}
                 className="p-2 text-white hover:bg-white/20 rounded-full transition-colors disabled:opacity-50"
-                title="缩小"
-                disabled={zoomLevel <= 0.5}
+                title="缩小 (Ctrl+-)"
+                disabled={zoomLevel <= 0.1}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
@@ -355,14 +375,15 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
               <button
                 onClick={resetImageTransform}
                 className="px-3 py-1 text-sm text-white hover:bg-white/20 rounded-full transition-colors"
+                title="重置缩放 (Ctrl+0)"
               >
-                {Math.round(zoomLevel * 100)}%
+                {getDisplayPercentage()}%
               </button>
               
               <button
                 onClick={handleZoomIn}
                 className="p-2 text-white hover:bg-white/20 rounded-full transition-colors disabled:opacity-50"
-                title="放大"
+                title="放大 (Ctrl++)"
                 disabled={zoomLevel >= 3}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -375,7 +396,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
           <button
             onClick={toggleFullscreen}
             className="p-2 text-white hover:bg-white/20 rounded-full transition-colors"
-            title={isFullscreen ? "退出全屏" : "全屏"}
+            title={isFullscreen ? "退出全屏 (空格)" : "全屏 (空格)"}
           >
             <Maximize2 className="w-5 h-5" />
           </button>
@@ -384,7 +405,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
             <button
               onClick={onClose}
               className="p-2 text-white hover:bg-white/20 rounded-full transition-colors"
-              title="关闭"
+              title="关闭 (Esc)"
             >
               <X className="w-5 h-5" />
             </button>
@@ -432,7 +453,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
               <button
                 onClick={goToPrevious}
                 className="absolute left-4 top-1/2 -translate-y-1/2 p-3 text-white hover:bg-white/20 rounded-full transition-colors backdrop-blur-sm z-10"
-                title="上一张"
+                title="上一张 (左箭头)"
               >
                 <ChevronLeft className="w-6 h-6" />
               </button>
@@ -440,7 +461,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
               <button
                 onClick={goToNext}
                 className="absolute right-4 top-1/2 -translate-y-1/2 p-3 text-white hover:bg-white/20 rounded-full transition-colors backdrop-blur-sm z-10"
-                title="下一张"
+                title="下一张 (右箭头)"
               >
                 <ChevronRight className="w-6 h-6" />
               </button>
@@ -450,7 +471,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
           {/* 缩放提示 */}
           {isZoomed && (
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-black/50 text-white text-sm rounded-full backdrop-blur-sm">
-              双击图片或按 Esc 键重置缩放
+              双击图片或按 Ctrl+0 重置缩放
             </div>
           )}
         </div>
