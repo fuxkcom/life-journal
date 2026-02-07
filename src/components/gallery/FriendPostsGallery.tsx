@@ -1,19 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { Grid, Calendar, Users, Filter } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Grid, Calendar, Users, Filter, ZoomIn } from 'lucide-react';
 import ImageGallery, { GalleryImage } from './ImageGallery';
 import { extractGalleryImagesFromPosts } from './galleryUtils';
 import './gallery.css';
-import ThumbnailImage from './ThumbnailImage';
 
 interface FriendPost {
   id: string;
   content: string;
-  images: Array<{
-    url: string;
-    thumbnail_url?: string;
-    width?: number;
-    height?: number;
-  }>;
+  image_urls: string[] | null; // 明确类型为字符串数组
   user_id: string;
   user: {
     name: string;
@@ -26,29 +20,117 @@ interface FriendPost {
 
 interface FriendPostsGalleryProps {
   posts: FriendPost[];
-  initialView?: 'grid' | 'masonry' | 'carousel';
+  initialView?: 'grid' | 'masonry';
   itemsPerPage?: number;
   enableFilter?: boolean;
   onImageClick?: (image: GalleryImage, index: number) => void;
 }
 
+// 响应式获取网格列数类名
+const getGridColumns = () => {
+  if (typeof window === 'undefined') return 'grid-cols-3';
+  const width = window.innerWidth;
+  if (width < 640) return 'grid-cols-2';      // 手机
+  if (width < 768) return 'grid-cols-3';      // 大手机/小平板
+  if (width < 1024) return 'grid-cols-4';     // 平板
+  return 'grid-cols-5';                       // 桌面
+};
+
+// 缩略图组件
+const ThumbnailImage: React.FC<{
+  image: GalleryImage;
+  index: number;
+  onClick: (image: GalleryImage, index: number) => void;
+}> = ({ image, index, onClick }) => {
+  const [loaded, setLoaded] = useState(false);
+
+  return (
+    <div 
+      className="relative aspect-square overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800 transition-all duration-300 hover:shadow-xl hover:z-10 hover:-translate-y-1 cursor-pointer group"
+      onClick={() => onClick(image, index)}
+    >
+      {/* 加载占位 */}
+      {!loaded && (
+        <div className="absolute inset-0 animate-pulse bg-gray-200 dark:bg-gray-700" />
+      )}
+      
+      {/* 缩略图 */}
+      <img
+        src={image.thumbnailUrl || image.url}
+        alt={image.alt || `图片 ${index + 1}`}
+        className={`w-full h-full object-cover transition-transform duration-500 ${
+          loaded ? 'opacity-100' : 'opacity-0'
+        } group-hover:scale-110`}
+        loading="lazy"
+        onLoad={() => setLoaded(true)}
+        onError={() => setLoaded(true)}
+      />
+      
+      {/* 悬停遮罩层 */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+        <div className="absolute bottom-0 left-0 right-0 p-3 text-white">
+          <p className="text-sm font-medium truncate">{image.uploader?.name || '好友'}</p>
+          {image.caption && (
+            <p className="text-xs opacity-90 truncate mt-1">{image.caption}</p>
+          )}
+        </div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+          <ZoomIn className="w-8 h-8 text-white/90" />
+        </div>
+      </div>
+      
+      {/* 点赞数标签 */}
+      {(image.likes || 0) > 0 && (
+        <div className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
+          ❤️ {image.likes}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const FriendPostsGallery: React.FC<FriendPostsGalleryProps> = ({
   posts,
   initialView = 'grid',
-  itemsPerPage = 12,
+  itemsPerPage = 15,
   enableFilter = true,
   onImageClick
 }) => {
-  const [viewMode, setViewMode] = useState<'grid' | 'masonry' | 'carousel'>(initialView);
+  // 状态管理
+  const [viewMode, setViewMode] = useState<'grid' | 'masonry'>(initialView);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
   const [filter, setFilter] = useState<'all' | 'recent' | 'popular'>('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const [gridColumns, setGridColumns] = useState(getGridColumns()); // 响应式列数
   
-  // 提取图片数据
-  const allImages = extractGalleryImagesFromPosts(posts);
+  // 响应式监听窗口大小变化
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    
+    const handleResize = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        setGridColumns(getGridColumns());
+      }, 100); // 防抖处理
+    };
+    
+    window.addEventListener('resize', handleResize);
+    // 初始执行一次
+    handleResize();
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(timeoutId);
+    };
+  }, []);
   
-  // 应用筛选
-  const filteredImages = React.useMemo(() => {
+  // 从帖子数据中提取图片信息
+  const allImages = useMemo(() => {
+    return extractGalleryImagesFromPosts(posts);
+  }, [posts]);
+  
+  // 应用筛选逻辑
+  const filteredImages = useMemo(() => {
     let filtered = [...allImages];
     
     switch (filter) {
@@ -60,30 +142,35 @@ const FriendPostsGallery: React.FC<FriendPostsGalleryProps> = ({
       case 'popular':
         filtered.sort((a, b) => (b.likes || 0) - (a.likes || 0));
         break;
+      default:
+        // 'all' 保持原顺序
+        break;
     }
     
     return filtered;
   }, [allImages, filter]);
   
-  // 分页
+  // 分页处理
   const totalPages = Math.ceil(filteredImages.length / itemsPerPage);
   const paginatedImages = filteredImages.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
   
-  // 处理图片点击
+  // 处理图片点击 - 打开大图浏览
   const handleImageClick = (image: GalleryImage, index: number) => {
-    setSelectedImageIndex(index);
+    // 计算在全量图片中的索引
+    const globalIndex = filteredImages.findIndex(img => img.id === image.id);
+    setSelectedImageIndex(globalIndex >= 0 ? globalIndex : index);
     onImageClick?.(image, index);
   };
   
-  // 关闭画廊
+  // 关闭大图浏览
   const handleCloseGallery = () => {
     setSelectedImageIndex(null);
   };
   
-  // 画廊导航
+  // 大图浏览中的导航
   const handleGalleryNavigate = (newIndex: number) => {
     setSelectedImageIndex(newIndex);
   };
@@ -91,34 +178,109 @@ const FriendPostsGallery: React.FC<FriendPostsGalleryProps> = ({
   // 处理点赞
   const handleLike = (imageId: string) => {
     console.log('点赞图片:', imageId);
-    // 这里应该调用Supabase API更新点赞状态
+    // TODO: 调用Supabase API更新点赞状态
   };
   
   // 处理分享
   const handleShare = (imageId: string) => {
     if (navigator.share && selectedImageIndex !== null) {
+      const image = filteredImages[selectedImageIndex];
       navigator.share({
         title: '好友动态图片',
-        text: filteredImages[selectedImageIndex].caption || '看看这张图片',
-        url: filteredImages[selectedImageIndex].url
+        text: image.caption || '看看这张图片',
+        url: image.url
+      }).catch(err => {
+        console.log('分享失败:', err);
+        // 降级方案：复制到剪贴板
+        navigator.clipboard.writeText(image.url);
+        alert('链接已复制到剪贴板');
       });
+    } else if (selectedImageIndex !== null) {
+      // 降级方案
+      navigator.clipboard.writeText(filteredImages[selectedImageIndex].url);
+      alert('链接已复制到剪贴板');
     }
   };
   
   // 处理下载
   const handleDownload = async (imageId: string) => {
     const image = filteredImages.find(img => img.id === imageId);
-    if (image) {
-      try {
-        // 使用工具函数下载
-        const { downloadImage } = await import('./galleryUtils');
-        await downloadImage(image.url, `friend-post-${imageId}.jpg`);
-      } catch (error) {
-        console.error('下载失败:', error);
-      }
+    if (!image) return;
+    
+    try {
+      const response = await fetch(image.url);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `life-journal-${image.id}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('下载失败:', error);
+      alert('下载失败，请稍后重试');
     }
   };
   
+  // 分页按钮组件
+  const renderPagination = () => {
+    if (totalPages <= 1) return null;
+    
+    const pageButtons = [];
+    const maxVisiblePages = 5;
+    
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+    
+    for (let page = startPage; page <= endPage; page++) {
+      pageButtons.push(
+        <button
+          key={page}
+          onClick={() => setCurrentPage(page)}
+          className={`min-w-[2.5rem] h-10 rounded-lg text-sm font-medium transition-colors ${
+            currentPage === page
+              ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md'
+              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+          }`}
+        >
+          {page}
+        </button>
+      );
+    }
+    
+    return (
+      <div className="flex flex-wrap justify-center items-center gap-2 mt-8">
+        <button
+          onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+          disabled={currentPage === 1}
+          className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+        >
+          上一页
+        </button>
+        
+        <div className="flex items-center gap-1">{pageButtons}</div>
+        
+        <button
+          onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+          disabled={currentPage === totalPages}
+          className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+        >
+          下一页
+        </button>
+        
+        <div className="text-sm text-gray-500 dark:text-gray-400 ml-4">
+          第 {currentPage} / {totalPages} 页 · 共 {filteredImages.length} 张图片
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg p-4 md:p-6">
       {/* 控制栏 */}
@@ -140,41 +302,26 @@ const FriendPostsGallery: React.FC<FriendPostsGalleryProps> = ({
               onClick={() => setViewMode('grid')}
               className={`p-2 rounded-md transition-colors ${
                 viewMode === 'grid' 
-                  ? 'bg-white dark:bg-gray-700 shadow-sm' 
-                  : 'hover:bg-gray-200 dark:hover:bg-gray-700'
+                  ? 'bg-white dark:bg-gray-700 shadow-sm text-blue-600 dark:text-blue-400' 
+                  : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400'
               }`}
               title="网格视图"
             >
               <Grid className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setViewMode('masonry')}
-              className={`p-2 rounded-md transition-colors ${
-                viewMode === 'masonry' 
-                  ? 'bg-white dark:bg-gray-700 shadow-sm' 
-                  : 'hover:bg-gray-200 dark:hover:bg-gray-700'
-              }`}
-              title="瀑布流视图"
-            >
-              <div className="flex flex-col space-y-0.5">
-                <div className="w-4 h-1 bg-current rounded-full" />
-                <div className="w-4 h-1 bg-current rounded-full" />
-                <div className="w-4 h-1 bg-current rounded-full" />
-              </div>
             </button>
           </div>
           
           {/* 筛选器 */}
           {enableFilter && (
             <div className="flex items-center space-x-2">
-              <Filter className="w-4 h-4 text-gray-500" />
+              <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
               <select
                 value={filter}
                 onChange={(e) => {
                   setFilter(e.target.value as any);
                   setCurrentPage(1);
                 }}
-                className="px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-800 border-0 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                className="px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-800 border-0 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-gray-700 dark:text-gray-300"
               >
                 <option value="all">全部图片</option>
                 <option value="recent">最近发布</option>
@@ -189,91 +336,55 @@ const FriendPostsGallery: React.FC<FriendPostsGalleryProps> = ({
       {paginatedImages.length === 0 ? (
         <div className="text-center py-12">
           <div className="w-24 h-24 mx-auto mb-4 text-gray-300 dark:text-gray-600">
-            <Grid className="w-full h-full" />
+            <Users className="w-full h-full opacity-50" />
           </div>
-          <p className="text-gray-500 dark:text-gray-400">暂无好友动态图片</p>
+          <p className="text-gray-500 dark:text-gray-400 text-lg mb-2">暂无好友动态图片</p>
+          <p className="text-gray-400 dark:text-gray-500 text-sm">
+            去发布一些图片，或者等待好友分享他们的生活
+          </p>
         </div>
       ) : (
         <>
           {/* 网格视图 */}
-          {/* viewMode === 'grid' && (
-           // <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
-              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 md:gap-3">
+          {viewMode === 'grid' && (
+            <div className={`grid ${gridColumns} gap-3 md:gap-4`}>
               {paginatedImages.map((image, index) => (
-                <div
+                <ThumbnailImage
                   key={image.id}
-                  className="relative group cursor-pointer overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800"
-                  onClick={() => handleImageClick(image, index)}
-                >
-                  <img
-                    src={image.thumbnailUrl || image.url}
-                    alt={image.alt || ''}
-                    className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
-                    loading="lazy"
-                  /> */}
-                  
-                  {/* 悬停遮罩 */}
-             {/* <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors duration-300 flex items-center justify-center">
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-white text-center p-4">
-                      <p className="font-medium truncate">{image.uploader?.name}</p>
-                      {image.caption && (
-                        <p className="text-sm mt-1 line-clamp-2">{image.caption}</p>
-                      )}
-                      {image.likes !== undefined && (
-                        <div className="flex items-center justify-center mt-2">
-                          <span className="text-sm">❤️ {image.likes}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                  image={image}
+                  index={index}
+                  onClick={handleImageClick}
+                />
               ))}
             </div>
-          )} */}
-         {/* 网格视图 */}
-          {viewMode === 'grid' && (
-            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
-             {paginatedImages.map((image, index) => (
-             <ThumbnailImage
-               key={image.id}
-               image={image}
-               index={index}
-               onClick={handleImageClick}
-               size="md" // sm/md/lg 可选
-               showOverlay={true}
-                />
-             ))}
-           </div>
-           )}
+          )}
           
-          {/* 瀑布流视图 */}
+          {/* 瀑布流视图（可选） */}
           {viewMode === 'masonry' && (
             <div className="columns-2 md:columns-3 lg:columns-4 gap-3 md:gap-4">
               {paginatedImages.map((image, index) => (
                 <div
                   key={image.id}
-                  className="mb-3 md:mb-4 break-inside-avoid cursor-pointer"
+                  className="mb-3 md:mb-4 break-inside-avoid"
                   onClick={() => handleImageClick(image, index)}
                 >
-                 // <img
-                 //   src={image.thumbnailUrl || image.url}
-                  //  alt={image.alt || ''}
-                  //  className="w-full rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300"
-                   // loading="lazy"
-                //  />
-                      // 修改后：
-                <div className="relative aspect-square overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800">
+                  <div className="relative overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800">
                     <img
-                     src={image.thumbnailUrl || image.url}
-                     alt={image.alt || ''}
-                     className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110 cursor-pointer"
-                     loading="lazy"
-              // 添加点击事件，如果还没有的话
-                     onClick={() => handleImageClick(image, index)}
-                   />
-                </div>
-                  <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                    <p className="font-medium truncate">{image.uploader?.name}</p>
+                      src={image.thumbnailUrl || image.url}
+                      alt={image.alt || ''}
+                      className="w-full rounded-lg transition-transform duration-300 hover:scale-105 cursor-pointer"
+                      loading="lazy"
+                    />
+                  </div>
+                  <div className="mt-2 px-1">
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
+                      {image.uploader?.name}
+                    </p>
+                    {image.caption && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mt-1">
+                        {image.caption}
+                      </p>
+                    )}
                   </div>
                 </div>
               ))}
@@ -281,71 +392,56 @@ const FriendPostsGallery: React.FC<FriendPostsGalleryProps> = ({
           )}
           
           {/* 分页控件 */}
-          {totalPages > 1 && (
-            <div className="flex justify-center items-center mt-8 space-x-2">
-              <button
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                disabled={currentPage === 1}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-              >
-                上一页
-              </button>
-              
-              <div className="flex items-center space-x-1">
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let pageNum;
-                  if (totalPages <= 5) {
-                    pageNum = i + 1;
-                  } else if (currentPage <= 3) {
-                    pageNum = i + 1;
-                  } else if (currentPage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i;
-                  } else {
-                    pageNum = currentPage - 2 + i;
-                  }
-                  
-                  return (
-                    <button
-                      key={pageNum}
-                      onClick={() => setCurrentPage(pageNum)}
-                      className={`w-8 h-8 rounded-full text-sm font-medium transition-colors ${
-                        currentPage === pageNum
-                          ? 'bg-blue-500 text-white'
-                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-                      }`}
-                    >
-                      {pageNum}
-                    </button>
-                  );
-                })}
-              </div>
-              
-              <button
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                disabled={currentPage === totalPages}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-              >
-                下一页
-              </button>
-            </div>
-          )}
+          {renderPagination()}
         </>
       )}
       
-      {/* 全屏画廊 */}
+      {/* 全屏大图浏览模态框 */}
       {selectedImageIndex !== null && (
-        <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4">
-          <ImageGallery
-            images={filteredImages}
-            initialIndex={selectedImageIndex}
-            onClose={handleCloseGallery}
-            showThumbnails={true}
-            showControls={true}
-            showInfo={true}
-            onLike={handleLike}
-            onShare={handleShare}
-            onDownload={handleDownload}
-          />
+        <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-2 md:p-4 gallery-modal">
+          <div className="absolute inset-0" onClick={handleCloseGallery} />
+          <div className="relative z-10 w-full max-w-6xl max-h-[90vh]">
+            <ImageGallery
+              images={filteredImages}
+              initialIndex={selectedImageIndex}
+              onClose={handleCloseGallery}
+              showThumbnails={true}
+              showControls={true}
+              showInfo={true}
+              aspectRatio="auto"
+              maxHeight="85vh"
+              onLike={handleLike}
+              onShare={handleShare}
+              onDownload={handleDownload}
+            />
+          </div>
+          <button
+            onClick={handleCloseGallery}
+            className="absolute top-4 right-4 z-20 p-3 text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors"
+            aria-label="关闭"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+      
+      {/* 使用提示 */}
+      {paginatedImages.length > 0 && (
+        <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+              点击缩略图可放大浏览
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
+              支持键盘导航（← → 键）
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+              鼠标滚轮可缩放图片
+            </span>
+          </div>
         </div>
       )}
     </div>
