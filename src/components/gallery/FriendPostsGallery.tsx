@@ -196,7 +196,8 @@ const FriendPostsGallery: React.FC<FriendPostsGalleryProps> = ({
         <>
           {/* 网格视图 */}
           {viewMode === 'grid' && (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
+           // <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
+              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 md:gap-3">
               {paginatedImages.map((image, index) => (
                 <div
                   key={image.id}
