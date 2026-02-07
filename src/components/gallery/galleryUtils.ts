@@ -149,3 +149,27 @@ export const debugImageData = (posts: any[]): void => {
   });
   console.log('==================');
 };
+
+/**
+ * 智能生成缩略图URL
+ */
+export const generateThumbnailUrl = (
+  originalUrl: string, 
+  size: { width: number; height: number } = { width: 400, height: 400 }
+): string => {
+  // 如果是Supabase Storage的URL，可以添加转换参数
+  if (originalUrl.includes('supabase.co/storage')) {
+    return `${originalUrl}?width=${size.width}&height=${size.height}&resize=cover&quality=80`;
+  }
+  
+  // 其他图床或URL，可以尝试添加通用参数或使用图片服务
+  if (originalUrl.includes('unsplash') || originalUrl.includes('cloudinary')) {
+    return originalUrl.replace(/w=\d+/, `w=${size.width}`);
+  }
+  
+  // 普通URL，直接返回
+  return originalUrl;
+};
+
+// 修改 extractGalleryImagesFromPosts 函数中的thumbnailUrl生成
+const thumbnailUrl = generateThumbnailUrl(url, { width: 400, height: 400 });
