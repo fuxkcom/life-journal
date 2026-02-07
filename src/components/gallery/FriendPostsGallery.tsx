@@ -3,6 +3,7 @@ import { Grid, Calendar, Users, Filter } from 'lucide-react';
 import ImageGallery, { GalleryImage } from './ImageGallery';
 import { extractGalleryImagesFromPosts } from './galleryUtils';
 import './gallery.css';
+import ThumbnailImage from './ThumbnailImage';
 
 interface FriendPost {
   id: string;
@@ -195,7 +196,7 @@ const FriendPostsGallery: React.FC<FriendPostsGalleryProps> = ({
       ) : (
         <>
           {/* 网格视图 */}
-          {viewMode === 'grid' && (
+          {/* viewMode === 'grid' && (
            // <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
               <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 md:gap-3">
               {paginatedImages.map((image, index) => (
@@ -209,10 +210,10 @@ const FriendPostsGallery: React.FC<FriendPostsGalleryProps> = ({
                     alt={image.alt || ''}
                     className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
                     loading="lazy"
-                  />
+                  /> */}
                   
                   {/* 悬停遮罩 */}
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors duration-300 flex items-center justify-center">
+             {/* <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors duration-300 flex items-center justify-center">
                     <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-white text-center p-4">
                       <p className="font-medium truncate">{image.uploader?.name}</p>
                       {image.caption && (
@@ -228,7 +229,22 @@ const FriendPostsGallery: React.FC<FriendPostsGalleryProps> = ({
                 </div>
               ))}
             </div>
-          )}
+          )} */}
+         {/* 网格视图 */}
+          {viewMode === 'grid' && (
+            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
+             {paginatedImages.map((image, index) => (
+             <ThumbnailImage
+               key={image.id}
+               image={image}
+               index={index}
+               onClick={handleImageClick}
+               size="md" // sm/md/lg 可选
+               showOverlay={true}
+                />
+             ))}
+           </div>
+           )}
           
           {/* 瀑布流视图 */}
           {viewMode === 'masonry' && (
