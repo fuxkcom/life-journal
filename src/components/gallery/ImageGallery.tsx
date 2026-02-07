@@ -30,7 +30,11 @@ interface ImageGalleryProps {
   aspectRatio?: 'square' | 'wide' | 'auto' | 'contain';
   maxHeight?: string;
   maxWidth?: string;
-  defaultZoom?: number; // 添加默认缩放比例参数
+  defaultZoom?: number;
+  thumbnailSize?: {
+    width: string;
+    height: string;
+  };
   onLike?: (imageId: string) => void;
   onShare?: (imageId: string) => void;
   onDownload?: (imageId: string) => void;
@@ -46,7 +50,8 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   aspectRatio = 'contain',
   maxHeight = '80vh',
   maxWidth = '90vw',
-  defaultZoom = 0.8, // 默认缩放为80%
+  defaultZoom = 0.8,
+  thumbnailSize = { width: '30mm', height: '20mm' }, // 默认缩略图尺寸
   onLike,
   onShare,
   onDownload
@@ -57,11 +62,15 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [imageLoadStatus, setImageLoadStatus] = useState<Record<string, boolean>>({});
-  const [zoomLevel, setZoomLevel] = useState(defaultZoom); // 使用默认缩放
+  const [zoomLevel, setZoomLevel] = useState(defaultZoom);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 });
   const [isZoomed, setIsZoomed] = useState(false);
+  const [thumbnailDimensions, setThumbnailDimensions] = useState({
+    width: '30mm',
+    height: '20mm'
+  });
   
   const galleryRef = useRef<HTMLDivElement>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
@@ -69,6 +78,11 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   
   // 当前图片
   const currentImage = images[currentIndex];
+
+  // 初始化缩略图尺寸
+  useEffect(() => {
+    setThumbnailDimensions(thumbnailSize);
+  }, [thumbnailSize]);
 
   // 重置图片位置和缩放
   const resetImageTransform = useCallback(() => {
@@ -83,10 +97,10 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
     
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
-      const delta = e.deltaY > 0 ? -0.05 : 0.05; // 减小缩放步长
+      const delta = e.deltaY > 0 ? -0.05 : 0.05;
       setZoomLevel(prev => {
         const newZoom = prev + delta;
-        const clampedZoom = Math.max(0.1, Math.min(3, newZoom)); // 最小缩放到10%
+        const clampedZoom = Math.max(0.1, Math.min(3, newZoom));
         if (clampedZoom !== defaultZoom) {
           setIsZoomed(true);
         }
@@ -245,7 +259,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   // 缩放控制
   const handleZoomIn = () => {
     setZoomLevel((prev) => {
-      const newZoom = Math.min(prev + 0.1, 3); // 减小缩放步长
+      const newZoom = Math.min(prev + 0.1, 3);
       if (Math.abs(newZoom - defaultZoom) > 0.01) {
         setIsZoomed(true);
       }
@@ -255,7 +269,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
 
   const handleZoomOut = () => {
     setZoomLevel((prev) => {
-      const newZoom = Math.max(prev - 0.1, 0.1); // 减小缩放步长，最小到10%
+      const newZoom = Math.max(prev - 0.1, 0.1);
       if (Math.abs(newZoom - defaultZoom) < 0.01) {
         setIsZoomed(false);
         setImagePosition({ x: 0, y: 0 });
@@ -542,18 +556,33 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
                 <button
                   key={image.id}
                   onClick={() => goToImage(index)}
-                  className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
+                  className={`flex-shrink-0 rounded-lg overflow-hidden border-2 transition-all hover:opacity-100 ${
                     index === currentIndex 
                       ? 'border-white scale-105' 
-                      : 'border-transparent opacity-60 hover:opacity-100'
+                      : 'border-transparent opacity-60'
                   }`}
+                  style={{
+                    width: thumbnailDimensions.width,
+                    height: thumbnailDimensions.height,
+                    minWidth: thumbnailDimensions.width,
+                    minHeight: thumbnailDimensions.height
+                  }}
+                  title={`查看图片 ${index + 1}`}
                 >
                   <img
                     src={image.thumbnailUrl || image.url}
                     alt={`缩略图 ${index + 1}`}
                     className="w-full h-full object-cover"
                     loading="lazy"
+                    style={{
+                      width: '100%',
+                      height: '100%'
+                    }}
                   />
+                  {/* 当前图片指示器 */}
+                  {index === currentIndex && (
+                    <div className="absolute inset-0 border-2 border-blue-400 pointer-events-none" />
+                  )}
                 </button>
               ))}
             </div>
