@@ -6,7 +6,8 @@ import {
   Heart, MessageCircle, MoreHorizontal, Send, Image, 
   PenSquare, Users, MessageSquare, BarChart3, Sparkles,
   TrendingUp, Bell, UserPlus, ChevronRight, Smile, Meh, Frown, 
-  Angry, Sun, CloudRain, Wind, Thermometer, Clock, MapPin
+  Angry, Sun, CloudRain, Wind, Thermometer, Clock, MapPin,
+  ZoomIn
 } from 'lucide-react'
 import Layout from '../components/Layout'
 import DateTime from '../components/DateTime'
@@ -34,6 +35,233 @@ const MOOD_CONFIG = {
   sad: { icon: Frown, label: '难过', color: 'text-blue-500', bg: 'bg-blue-50', border: 'border-blue-200' },
   angry: { icon: Angry, label: '生气', color: 'text-red-500', bg: 'bg-red-50', border: 'border-red-200' },
 }
+
+// 帖子图片画廊组件
+const PostImageGallery = ({ 
+  post, 
+  onImageClick 
+}: { 
+  post: any; 
+  onImageClick?: () => void;
+}) => {
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
+  
+  // 将帖子数据转换为图片数组
+  const galleryImages = (post.image_urls || []).map((url: string, index: number) => ({
+    id: `${post.id}-${index}`,
+    url: url,
+    thumbnailUrl: url,
+    alt: post.content || `来自 ${post.profile?.display_name || post.profile?.username} 的图片`,
+    caption: post.content,
+    uploader: {
+      id: post.user_id,
+      name: post.profile?.display_name || post.profile?.username || '好友',
+      avatar: post.profile?.avatar_url
+    },
+    createdAt: post.created_at,
+    likes: post.likes_count || 0,
+    isLiked: post.is_liked || false
+  }));
+  
+  // 单个帖子的缩略图显示
+  const renderThumbnails = () => {
+    const imageCount = galleryImages.length;
+    
+    if (imageCount === 0) return null;
+    
+    // 1张图片：中等大小
+    if (imageCount === 1) {
+      return (
+        <div className="max-w-2xl">
+          <div 
+            className="relative overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800 cursor-pointer group"
+            onClick={() => {
+              setSelectedImageIndex(0);
+              onImageClick?.();
+            }}
+          >
+            <img
+              src={galleryImages[0].url}
+              alt={galleryImages[0].alt || ''}
+              className="w-full h-auto max-h-[400px] object-contain transition-transform duration-500 group-hover:scale-105"
+              loading="lazy"
+            />
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300 flex items-center justify-center">
+              <ZoomIn className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    // 2-4张图片：网格布局
+    if (imageCount <= 4) {
+      const gridCols = imageCount === 2 ? 'grid-cols-2' : 'grid-cols-2';
+      const maxWidth = imageCount <= 2 ? 'max-w-xl' : 'max-w-2xl';
+      
+      return (
+        <div className={`${maxWidth}`}>
+          <div className={`grid ${gridCols} gap-2`}>
+            {galleryImages.slice(0, 4).map((image, index) => (
+              <div
+                key={image.id}
+                className="relative aspect-square overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800 cursor-pointer group"
+                onClick={() => {
+                  setSelectedImageIndex(index);
+                  onImageClick?.();
+                }}
+              >
+                <img
+                  src={image.url}
+                  alt={image.alt || ''}
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  loading="lazy"
+                />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-300 flex items-center justify-center">
+                  <ZoomIn className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  {imageCount > 4 && index === 3 && (
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                      <span className="text-white font-bold text-lg">
+                        +{imageCount - 3}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+    
+    // 5张以上图片：3x3网格，最后一张显示剩余数量
+    return (
+      <div className="max-w-2xl">
+        <div className="grid grid-cols-3 gap-2">
+          {galleryImages.slice(0, 9).map((image, index) => (
+            <div
+              key={image.id}
+              className={`relative overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800 cursor-pointer group ${
+                index < 6 ? 'aspect-square' : 'aspect-video'
+              }`}
+              onClick={() => {
+                setSelectedImageIndex(index);
+                onImageClick?.();
+              }}
+            >
+              <img
+                src={image.url}
+                alt={image.alt || ''}
+                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                loading="lazy"
+              />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-300 flex items-center justify-center">
+                <ZoomIn className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              </div>
+              
+              {index === 8 && galleryImages.length > 9 && (
+                <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                  <span className="text-white font-bold text-lg">
+                    +{galleryImages.length - 9}
+                  </span>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+  
+  return (
+    <>
+      {renderThumbnails()}
+      
+      {/* 全屏图片浏览 */}
+      {selectedImageIndex !== null && (
+        <div className="fixed inset-0 z-[9999] bg-black/95 flex items-center justify-center p-2 md:p-4">
+          <div 
+            className="absolute inset-0"
+            onClick={() => setSelectedImageIndex(null)}
+          />
+          
+          <div className="relative z-10 w-full max-w-6xl max-h-[90vh]">
+            <button
+              onClick={() => setSelectedImageIndex(null)}
+              className="absolute -top-12 right-0 p-3 text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors z-20"
+              aria-label="关闭"
+            >
+              ✕
+            </button>
+            
+            <div className="relative w-full h-full">
+              {/* 当前图片 */}
+              <div className="flex items-center justify-center h-full">
+                <img
+                  src={galleryImages[selectedImageIndex].url}
+                  alt={galleryImages[selectedImageIndex].alt || ''}
+                  className="max-w-full max-h-full object-contain rounded-lg"
+                />
+              </div>
+              
+              {/* 导航箭头 */}
+              {galleryImages.length > 1 && (
+                <>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedImageIndex(
+                        selectedImageIndex > 0 
+                          ? selectedImageIndex - 1 
+                          : galleryImages.length - 1
+                      );
+                    }}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 p-3 text-white hover:bg-white/20 rounded-full transition-colors backdrop-blur-sm"
+                  >
+                    ←
+                  </button>
+                  
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedImageIndex(
+                        selectedImageIndex < galleryImages.length - 1 
+                          ? selectedImageIndex + 1 
+                          : 0
+                      );
+                    }}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 p-3 text-white hover:bg-white/20 rounded-full transition-colors backdrop-blur-sm"
+                  >
+                    →
+                  </button>
+                </>
+              )}
+              
+              {/* 图片信息 */}
+              <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/60 to-transparent">
+                <div className="flex items-center justify-between">
+                  <div className="text-white">
+                    <p className="font-medium">
+                      {galleryImages[selectedImageIndex].uploader?.name}
+                    </p>
+                    {galleryImages[selectedImageIndex].caption && (
+                      <p className="text-sm opacity-90 mt-1">
+                        {galleryImages[selectedImageIndex].caption}
+                      </p>
+                    )}
+                  </div>
+                  <div className="text-white text-sm">
+                    {selectedImageIndex + 1} / {galleryImages.length}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
 
 export default function Home() {
   const { user } = useAuth()
@@ -723,29 +951,15 @@ export default function Home() {
                   <p className="text-stone-700 whitespace-pre-wrap leading-relaxed">{post.content}</p>
                 </div>
 
-                {/* Post Images */}
+                {/* Post Images - 使用增强版画廊 */}
                 {post.image_urls && post.image_urls.length > 0 && (
                   <div className="px-4 pb-4">
-                    <div className={`grid gap-2 ${
-                      post.image_urls.length === 1 
-                        ? 'grid-cols-1 max-w-md' 
-                        : post.image_urls.length === 2 
-                          ? 'grid-cols-2 max-w-lg' 
-                          : 'grid-cols-3 max-w-xl'
-                    }`}>
-                      {post.image_urls.map((url, i) => (
-                        <img 
-                          key={i} 
-                          src={url} 
-                          alt="" 
-                          className={`w-full object-cover rounded-xl ${
-                            post.image_urls!.length === 1 
-                              ? 'max-h-96' 
-                              : 'aspect-square'
-                          }`}
-                        />
-                      ))}
-                    </div>
+                    <PostImageGallery 
+                      post={post}
+                      onImageClick={() => {
+                        console.log('点击了帖子图片:', post.id);
+                      }}
+                    />
                   </div>
                 )}
 
