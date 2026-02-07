@@ -238,12 +238,23 @@ const FriendPostsGallery: React.FC<FriendPostsGalleryProps> = ({
                   className="mb-3 md:mb-4 break-inside-avoid cursor-pointer"
                   onClick={() => handleImageClick(image, index)}
                 >
-                  <img
-                    src={image.thumbnailUrl || image.url}
-                    alt={image.alt || ''}
-                    className="w-full rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300"
-                    loading="lazy"
-                  />
+                 // <img
+                 //   src={image.thumbnailUrl || image.url}
+                  //  alt={image.alt || ''}
+                  //  className="w-full rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300"
+                   // loading="lazy"
+                //  />
+                      // 修改后：
+                <div className="relative aspect-square overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800">
+                    <img
+                     src={image.thumbnailUrl || image.url}
+                     alt={image.alt || ''}
+                     className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110 cursor-pointer"
+                     loading="lazy"
+              // 添加点击事件，如果还没有的话
+                     onClick={() => handleImageClick(image, index)}
+                   />
+                </div>
                   <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
                     <p className="font-medium truncate">{image.uploader?.name}</p>
                   </div>
