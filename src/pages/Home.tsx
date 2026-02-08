@@ -63,27 +63,42 @@ const PostImageGallery = ({
     isLiked: post.is_liked || false
   }));
   
+  // 固定显示尺寸：30mm × 20mm ≈ 113px × 76px
+  const displayWidth = 113; // 像素
+  const displayHeight = 76; // 像素
+  
   // 单个帖子的缩略图显示
   const renderThumbnails = () => {
     const imageCount = galleryImages.length;
     
     if (imageCount === 0) return null;
     
-    // 1张图片：中等大小
+    // 1张图片：固定大小
     if (imageCount === 1) {
       return (
-        <div className="max-w-2xl">
+        <div style={{ width: `${displayWidth}px`, height: `${displayHeight}px` }}>
           <div 
-            className="relative overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800 cursor-pointer group"
+            className="relative overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800 cursor-pointer group flex items-center justify-center"
             onClick={() => {
               setSelectedImageIndex(0);
               onImageClick?.();
+            }}
+            style={{ 
+              width: `${displayWidth}px`, 
+              height: `${displayHeight}px`,
+              minWidth: `${displayWidth}px`,
+              minHeight: `${displayHeight}px`
             }}
           >
             <img
               src={galleryImages[0].url}
               alt={galleryImages[0].alt || ''}
-              className="w-full h-auto max-h-[400px] object-contain transition-transform duration-500 group-hover:scale-105"
+              style={{ 
+                width: `${displayWidth}px`, 
+                height: `${displayHeight}px`,
+                objectFit: 'contain' as const
+              }}
+              className="transition-transform duration-500 group-hover:scale-105"
               loading="lazy"
             />
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300 flex items-center justify-center">
@@ -94,27 +109,37 @@ const PostImageGallery = ({
       );
     }
     
-    // 2-4张图片：网格布局
+    // 2-4张图片：网格布局，每个图片固定大小
     if (imageCount <= 4) {
       const gridCols = imageCount === 2 ? 'grid-cols-2' : 'grid-cols-2';
-      const maxWidth = imageCount <= 2 ? 'max-w-xl' : 'max-w-2xl';
+      const containerWidth = imageCount === 2 ? displayWidth * 2 + 8 : displayWidth * 2 + 8;
+      const containerHeight = imageCount <= 2 ? displayHeight : displayHeight * 2 + 8;
       
       return (
-        <div className={`${maxWidth}`}>
+        <div style={{ width: `${containerWidth}px`, height: `${containerHeight}px` }}>
           <div className={`grid ${gridCols} gap-2`}>
             {galleryImages.slice(0, 4).map((image, index) => (
               <div
                 key={image.id}
-                className="relative aspect-square overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800 cursor-pointer group"
+                className="relative overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800 cursor-pointer group flex items-center justify-center"
                 onClick={() => {
                   setSelectedImageIndex(index);
                   onImageClick?.();
+                }}
+                style={{ 
+                  width: `${displayWidth}px`, 
+                  height: `${displayHeight}px`
                 }}
               >
                 <img
                   src={image.url}
                   alt={image.alt || ''}
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  style={{ 
+                    width: `${displayWidth}px`, 
+                    height: `${displayHeight}px`,
+                    objectFit: 'cover' as const
+                  }}
+                  className="transition-transform duration-500 group-hover:scale-110"
                   loading="lazy"
                 />
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-300 flex items-center justify-center">
@@ -134,25 +159,35 @@ const PostImageGallery = ({
       );
     }
     
-    // 5张以上图片：3x3网格，最后一张显示剩余数量
+    // 5张以上图片：3x3网格，每个图片固定大小
+    const containerWidth = displayWidth * 3 + 16;
+    const containerHeight = displayHeight * 3 + 16;
+    
     return (
-      <div className="max-w-2xl">
+      <div style={{ width: `${containerWidth}px`, height: `${containerHeight}px` }}>
         <div className="grid grid-cols-3 gap-2">
           {galleryImages.slice(0, 9).map((image, index) => (
             <div
               key={image.id}
-              className={`relative overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800 cursor-pointer group ${
-                index < 6 ? 'aspect-square' : 'aspect-video'
-              }`}
+              className="relative overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800 cursor-pointer group flex items-center justify-center"
               onClick={() => {
                 setSelectedImageIndex(index);
                 onImageClick?.();
+              }}
+              style={{ 
+                width: `${displayWidth}px`, 
+                height: `${displayHeight}px`
               }}
             >
               <img
                 src={image.url}
                 alt={image.alt || ''}
-                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                style={{ 
+                  width: `${displayWidth}px`, 
+                  height: `${displayHeight}px`,
+                  objectFit: 'cover' as const
+                }}
+                className="transition-transform duration-500 group-hover:scale-110"
                 loading="lazy"
               />
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-300 flex items-center justify-center">
@@ -197,11 +232,20 @@ const PostImageGallery = ({
             <div className="relative w-full h-full">
               {/* 当前图片 */}
               <div className="flex items-center justify-center h-full">
-                <img
-                  src={galleryImages[selectedImageIndex].url}
-                  alt={galleryImages[selectedImageIndex].alt || ''}
-                  className="max-w-full max-h-full object-contain rounded-lg"
-                />
+                <div style={{ width: `${displayWidth}px`, height: `${displayHeight}px` }}>
+                  <div className="w-full h-full bg-gray-900 rounded-lg overflow-hidden flex items-center justify-center">
+                    <img
+                      src={galleryImages[selectedImageIndex].url}
+                      alt={galleryImages[selectedImageIndex].alt || ''}
+                      style={{ 
+                        width: `${displayWidth}px`, 
+                        height: `${displayHeight}px`,
+                        objectFit: 'contain' as const
+                      }}
+                      className="max-w-full max-h-full"
+                    />
+                  </div>
+                </div>
               </div>
               
               {/* 导航箭头 */}
