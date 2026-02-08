@@ -51,7 +51,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   maxHeight = '80vh',
   maxWidth = '90vw',
   defaultZoom = 0.8,
-  thumbnailSize = { width: '30mm', height: '20mm' },
+  thumbnailSize = { width: '113px', height: '76px' }, // 30mm ≈ 113px, 20mm ≈ 76px (在96dpi下)
   onLike,
   onShare,
   onDownload
@@ -564,7 +564,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
                     style={{
                       width: '100%',
                       height: '100%',
-                      padding: 0
+                      padding: '2px'
                     }}
                     title={`查看图片 ${index + 1}`}
                   >
@@ -572,11 +572,6 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
                       src={image.thumbnailUrl || image.url}
                       alt={`缩略图 ${index + 1}`}
                       className="w-full h-full object-cover"
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover'
-                      }}
                       loading="lazy"
                     />
                   </button>
@@ -597,34 +592,10 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
           
           {/* 尺寸提示 */}
           <div className="text-center text-gray-400 text-xs mt-2">
-            缩略图尺寸: {thumbnailSize.width} × {thumbnailSize.height}
+            缩略图尺寸: {thumbnailSize.width} × {thumbnailSize.height} (约30mm × 20mm)
           </div>
         </div>
       )}
-      
-      {/* 添加CSS样式确保mm单位正确应用 */}
-      <style jsx global>{`
-        @media screen {
-          /* 确保mm单位在屏幕上正确显示 */
-          img {
-            max-width: 100%;
-            max-height: 100%;
-          }
-          
-          /* 缩略图容器的样式 */
-          .thumbnail-container {
-            box-sizing: border-box;
-          }
-          
-          /* 针对缩略图按钮的特殊样式 */
-          button.thumbnail-button {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-          }
-        }
-      `}</style>
     </div>
   );
 };
