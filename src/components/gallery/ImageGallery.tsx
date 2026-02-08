@@ -31,6 +31,10 @@ interface ImageGalleryProps {
   maxHeight?: string;
   maxWidth?: string;
   defaultZoom?: number;
+  displaySize?: {
+    width: number;  // 显示宽度（像素）
+    height: number; // 显示高度（像素）
+  };
   onLike?: (imageId: string) => void;
   onShare?: (imageId: string) => void;
   onDownload?: (imageId: string) => void;
@@ -43,10 +47,11 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   showThumbnails = true,
   showControls = true,
   showInfo = true,
-  aspectRatio = 'auto', // 改为auto以保持原始比例
-  maxHeight = '60vh', // 减小最大高度
-  maxWidth = '80vw', // 减小最大宽度
-  defaultZoom = 0.3, // 默认缩放为30%
+  aspectRatio = 'contain',
+  maxHeight = '80vh',
+  maxWidth = '90vw',
+  defaultZoom = 0.8,
+  displaySize = { width: 113, height: 76 }, // 30mm×20mm ≈ 113px×76px
   onLike,
   onShare,
   onDownload
@@ -57,12 +62,11 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [imageLoadStatus, setImageLoadStatus] = useState<Record<string, boolean>>({});
-  const [zoomLevel, setZoomLevel] = useState(defaultZoom);
+  const [zoomLevel, setZoomLevel] = useState(1);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 });
   const [isZoomed, setIsZoomed] = useState(false);
-  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   
   const galleryRef = useRef<HTMLDivElement>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
@@ -71,44 +75,12 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   // 当前图片
   const currentImage = images[currentIndex];
 
-  // 计算30mm×20mm在像素中的大小
-  const getPixelSize = () => {
-    // 30mm = 3cm, 20mm = 2cm
-    // 在96dpi屏幕上，1cm = 37.8px
-    // 所以30mm = 3cm × 37.8px/cm = 113.4px
-    // 20mm = 2cm × 37.8px/cm = 75.6px
-    return {
-      width: 113, // 30mm对应的像素
-      height: 76   // 20mm对应的像素
-    };
-  };
-
-  // 更新容器尺寸
-  useEffect(() => {
-    const updateContainerSize = () => {
-      if (imageContainerRef.current) {
-        const rect = imageContainerRef.current.getBoundingClientRect();
-        setContainerSize({
-          width: rect.width,
-          height: rect.height
-        });
-      }
-    };
-
-    updateContainerSize();
-    window.addEventListener('resize', updateContainerSize);
-    
-    return () => {
-      window.removeEventListener('resize', updateContainerSize);
-    };
-  }, []);
-
   // 重置图片位置和缩放
   const resetImageTransform = useCallback(() => {
-    setZoomLevel(defaultZoom);
+    setZoomLevel(1);
     setImagePosition({ x: 0, y: 0 });
     setIsZoomed(false);
-  }, [defaultZoom]);
+  }, []);
 
   // 处理鼠标滚轮缩放
   const handleWheel = useCallback((e: WheelEvent) => {
@@ -120,17 +92,17 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
       setZoomLevel(prev => {
         const newZoom = prev + delta;
         const clampedZoom = Math.max(0.1, Math.min(5, newZoom));
-        if (clampedZoom !== defaultZoom) {
+        if (clampedZoom !== 1) {
           setIsZoomed(true);
         }
         return clampedZoom;
       });
     }
-  }, [defaultZoom]);
+  }, []);
 
   // 处理鼠标拖动
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (zoomLevel <= defaultZoom) return;
+    if (zoomLevel <= 1) return;
     
     e.preventDefault();
     setIsDragging(true);
@@ -138,16 +110,16 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
       x: e.clientX - imagePosition.x,
       y: e.clientY - imagePosition.y
     });
-  }, [zoomLevel, defaultZoom, imagePosition]);
+  }, [zoomLevel, imagePosition]);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isDragging || zoomLevel <= defaultZoom) return;
+    if (!isDragging || zoomLevel <= 1) return;
     
     e.preventDefault();
     const newX = e.clientX - dragStart.x;
     const newY = e.clientY - dragStart.y;
     
-    // 限制拖动范围
+    // 限制拖动范围，防止图片被拖出可视区域
     const container = imageContainerRef.current;
     const image = imageRef.current;
     if (container && image) {
@@ -162,7 +134,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
         y: Math.max(-maxY, Math.min(maxY, newY))
       });
     }
-  }, [isDragging, dragStart, zoomLevel, defaultZoom]);
+  }, [isDragging, dragStart, zoomLevel]);
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
@@ -170,13 +142,13 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
 
   // 双击缩放功能
   const handleImageDoubleClick = useCallback(() => {
-    if (Math.abs(zoomLevel - defaultZoom) < 0.01) {
+    if (Math.abs(zoomLevel - 1) < 0.01) {
       setZoomLevel(2);
       setIsZoomed(true);
     } else {
       resetImageTransform();
     }
-  }, [zoomLevel, defaultZoom, resetImageTransform]);
+  }, [zoomLevel, resetImageTransform]);
 
   // 处理键盘导航
   useEffect(() => {
@@ -279,7 +251,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   const handleZoomIn = () => {
     setZoomLevel((prev) => {
       const newZoom = Math.min(prev + 0.1, 5);
-      if (Math.abs(newZoom - defaultZoom) > 0.01) {
+      if (newZoom !== 1) {
         setIsZoomed(true);
       }
       return newZoom;
@@ -289,7 +261,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   const handleZoomOut = () => {
     setZoomLevel((prev) => {
       const newZoom = Math.max(prev - 0.1, 0.1);
-      if (Math.abs(newZoom - defaultZoom) < 0.01) {
+      if (newZoom === 1) {
         setIsZoomed(false);
         setImagePosition({ x: 0, y: 0 });
       }
@@ -319,8 +291,6 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
 
   // 获取图片容器样式
   const getImageContainerStyle = () => {
-    const pixelSize = getPixelSize();
-    
     if (aspectRatio === 'contain') {
       return {
         maxWidth: maxWidth,
@@ -347,13 +317,11 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
 
   // 获取图片样式
   const getImageStyle = () => {
-    const pixelSize = getPixelSize();
     const baseStyle = {
       transform: `scale(${zoomLevel}) translate(${imagePosition.x}px, ${imagePosition.y}px)`,
-      cursor: zoomLevel > defaultZoom ? 'grab' : 'default',
-      // 设置固定的物理尺寸
-      width: `${pixelSize.width}px`,
-      height: `${pixelSize.height}px`,
+      cursor: zoomLevel > 1 ? 'grab' : 'default',
+      width: `${displaySize.width}px`,
+      height: `${displaySize.height}px`,
       objectFit: 'contain' as const,
     };
     
@@ -364,7 +332,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
     return baseStyle;
   };
 
-  // 获取实际显示百分比（相对于原始尺寸）
+  // 获取实际显示百分比
   const getDisplayPercentage = () => {
     return Math.round(zoomLevel * 100);
   };
@@ -417,7 +385,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
                 className="px-3 py-1 text-sm text-white hover:bg-white/20 rounded-full transition-colors"
                 title="重置缩放 (Ctrl+0)"
               >
-                {getDisplayPercentage()}% (30mm×20mm)
+                {getDisplayPercentage()}%
               </button>
               
               <button
@@ -473,23 +441,25 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
               <p className="text-gray-400 text-sm">{error}</p>
             </div>
           ) : (
-            <div className="relative">
-              <img
-                ref={imageRef}
-                src={currentImage.url}
-                alt={currentImage.alt || `图片 ${currentIndex + 1}`}
-                className="rounded-lg shadow-2xl select-none bg-gray-900"
-                onLoad={() => handleImageLoad(currentImage.id)}
-                onError={() => handleImageError(currentImage.id)}
-                onDoubleClick={handleImageDoubleClick}
-                onMouseDown={handleMouseDown}
-                style={getImageStyle()}
-                draggable={false}
-              />
+            <div className="flex flex-col items-center">
+              <div className="relative">
+                <img
+                  ref={imageRef}
+                  src={currentImage.url}
+                  alt={currentImage.alt || `图片 ${currentIndex + 1}`}
+                  className="rounded-lg shadow-2xl select-none bg-gray-900"
+                  onLoad={() => handleImageLoad(currentImage.id)}
+                  onError={() => handleImageError(currentImage.id)}
+                  onDoubleClick={handleImageDoubleClick}
+                  onMouseDown={handleMouseDown}
+                  style={getImageStyle()}
+                  draggable={false}
+                />
+              </div>
               
               {/* 尺寸指示器 */}
-              <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 bg-black/70 text-white text-xs px-2 py-1 rounded">
-                {getPixelSize().width}px × {getPixelSize().height}px (30mm×20mm)
+              <div className="mt-4 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                显示尺寸: {displaySize.width}px × {displaySize.height}px (约30mm×20mm)
               </div>
             </div>
           )}
@@ -518,7 +488,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
           {/* 缩放提示 */}
           {isZoomed && (
             <div className="absolute bottom-8 left-1/2 -translate-x-1/2 px-4 py-2 bg-black/50 text-white text-sm rounded-full backdrop-blur-sm">
-              双击图片或按 Ctrl+0 重置到30mm×20mm
+              双击图片或按 Ctrl+0 重置缩放
             </div>
           )}
         </div>
