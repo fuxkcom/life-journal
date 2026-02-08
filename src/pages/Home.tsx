@@ -208,11 +208,11 @@ const PostImageGallery = ({
     );
   };
   
-  return (
+ return (
     <>
       {renderThumbnails()}
       
-      {/* 全屏图片浏览 */}
+      {/* 全屏图片浏览 - 已修改：显示大图 */}
       {selectedImageIndex !== null && (
         <div className="fixed inset-0 z-[9999] bg-black/95 flex items-center justify-center p-2 md:p-4">
           <div 
@@ -220,31 +220,26 @@ const PostImageGallery = ({
             onClick={() => setSelectedImageIndex(null)}
           />
           
-          <div className="relative z-10 w-full max-w-6xl max-h-[90vh]">
+          <div className="relative z-10 w-full h-full flex items-center justify-center">
             <button
               onClick={() => setSelectedImageIndex(null)}
-              className="absolute -top-12 right-0 p-3 text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors z-20"
+              className="absolute top-4 right-4 md:top-6 md:right-6 p-2 bg-black/50 text-white/90 hover:text-white hover:bg-black/70 rounded-full transition-colors z-20"
               aria-label="关闭"
             >
-              ✕
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
             
-            <div className="relative w-full h-full">
-              {/* 当前图片 */}
-              <div className="flex items-center justify-center h-full">
-                <div style={{ width: `${displayWidth}px`, height: `${displayHeight}px` }}>
-                  <div className="w-full h-full bg-gray-900 rounded-lg overflow-hidden flex items-center justify-center">
-                    <img
-                      src={galleryImages[selectedImageIndex].url}
-                      alt={galleryImages[selectedImageIndex].alt || ''}
-                      style={{ 
-                        width: `${displayWidth}px`, 
-                        height: `${displayHeight}px`,
-                        objectFit: 'contain' as const
-                      }}
-                      className="max-w-full max-h-full"
-                    />
-                  </div>
+            <div className="relative w-full h-full flex items-center justify-center p-4">
+              {/* 当前图片 - 修改为自适应大图 */}
+              <div className="flex items-center justify-center w-full h-full">
+                <div className="max-w-full max-h-full">
+                  <img
+                    src={galleryImages[selectedImageIndex].url}
+                    alt={galleryImages[selectedImageIndex].alt || ''}
+                    className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                  />
                 </div>
               </div>
               
@@ -260,9 +255,11 @@ const PostImageGallery = ({
                           : galleryImages.length - 1
                       );
                     }}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 p-3 text-white hover:bg-white/20 rounded-full transition-colors backdrop-blur-sm"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-black/50 text-white hover:bg-black/70 rounded-full transition-colors backdrop-blur-sm z-10"
                   >
-                    ←
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
                   </button>
                   
                   <button
@@ -274,27 +271,45 @@ const PostImageGallery = ({
                           : 0
                       );
                     }}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 p-3 text-white hover:bg-white/20 rounded-full transition-colors backdrop-blur-sm"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-black/50 text-white hover:bg-black/70 rounded-full transition-colors backdrop-blur-sm z-10"
                   >
-                    →
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
                   </button>
                 </>
               )}
               
               {/* 图片信息 */}
-              <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/60 to-transparent">
-                <div className="flex items-center justify-between">
+              <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
+                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
                   <div className="text-white">
-                    <p className="font-medium">
-                      {galleryImages[selectedImageIndex].uploader?.name}
-                    </p>
+                    <div className="flex items-center gap-3 mb-2">
+                      {galleryImages[selectedImageIndex].uploader?.avatar && (
+                        <img
+                          src={galleryImages[selectedImageIndex].uploader.avatar}
+                          alt={galleryImages[selectedImageIndex].uploader?.name}
+                          className="w-8 h-8 rounded-full border-2 border-white/30"
+                        />
+                      )}
+                      <div>
+                        <p className="font-medium">
+                          {galleryImages[selectedImageIndex].uploader?.name}
+                        </p>
+                        {galleryImages[selectedImageIndex].createdAt && (
+                          <p className="text-sm opacity-75">
+                            {new Date(galleryImages[selectedImageIndex].createdAt).toLocaleString('zh-CN')}
+                          </p>
+                        )}
+                      </div>
+                    </div>
                     {galleryImages[selectedImageIndex].caption && (
-                      <p className="text-sm opacity-90 mt-1">
+                      <p className="text-sm opacity-90 mt-1 max-w-2xl">
                         {galleryImages[selectedImageIndex].caption}
                       </p>
                     )}
                   </div>
-                  <div className="text-white text-sm">
+                  <div className="text-white/80 text-sm font-medium bg-black/40 px-3 py-1.5 rounded-full">
                     {selectedImageIndex + 1} / {galleryImages.length}
                   </div>
                 </div>
@@ -305,7 +320,6 @@ const PostImageGallery = ({
       )}
     </>
   );
-};
 
 export default function Home() {
   const { user } = useAuth()
