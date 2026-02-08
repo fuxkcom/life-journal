@@ -27,7 +27,7 @@ interface ImageGalleryProps {
   showThumbnails?: boolean;
   showControls?: boolean;
   showInfo?: boolean;
-  // 保持向后兼容性，但内部不再使用这些属性
+  // 为了向后兼容性保留这些属性，但不再使用
   aspectRatio?: 'square' | 'wide' | 'auto' | 'contain';
   maxHeight?: string;
   maxWidth?: string;
@@ -66,7 +66,6 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   const [isZoomed, setIsZoomed] = useState(false);
   
   const galleryRef = useRef<HTMLDivElement>(null);
-  const imageContainerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   
   // 当前图片
@@ -74,8 +73,8 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   
   // 固定显示尺寸：30mm × 20mm
   // 在96dpi屏幕上：1mm = 3.78px，所以30mm = 113.4px，20mm = 75.6px
-  const displayWidth = 113; // 像素
-  const displayHeight = 76; // 像素
+  const DISPLAY_WIDTH = 113; // 像素
+  const DISPLAY_HEIGHT = 76; // 像素
 
   // 重置图片位置和缩放
   const resetImageTransform = useCallback(() => {
@@ -121,21 +120,14 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
     const newX = e.clientX - dragStart.x;
     const newY = e.clientY - dragStart.y;
     
-    // 限制拖动范围
-    const container = imageContainerRef.current;
-    const image = imageRef.current;
-    if (container && image) {
-      const containerRect = container.getBoundingClientRect();
-      const imageRect = image.getBoundingClientRect();
-      
-      const maxX = Math.max(0, (imageRect.width * zoomLevel - containerRect.width) / 2);
-      const maxY = Math.max(0, (imageRect.height * zoomLevel - containerRect.height) / 2);
-      
-      setImagePosition({
-        x: Math.max(-maxX, Math.min(maxX, newX)),
-        y: Math.max(-maxY, Math.min(maxY, newY))
-      });
-    }
+    // 计算最大拖动范围
+    const maxX = Math.max(0, (DISPLAY_WIDTH * zoomLevel - DISPLAY_WIDTH) / 2);
+    const maxY = Math.max(0, (DISPLAY_HEIGHT * zoomLevel - DISPLAY_HEIGHT) / 2);
+    
+    setImagePosition({
+      x: Math.max(-maxX, Math.min(maxX, newX)),
+      y: Math.max(-maxY, Math.min(maxY, newY))
+    });
   }, [isDragging, dragStart, zoomLevel]);
 
   const handleMouseUp = useCallback(() => {
@@ -291,16 +283,16 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
     }
   };
 
-  // 获取图片样式
+  // 获取图片样式 - 强制固定尺寸
   const getImageStyle = () => {
     const baseStyle = {
       transform: `scale(${zoomLevel}) translate(${imagePosition.x}px, ${imagePosition.y}px)`,
       cursor: zoomLevel > 1 ? 'grab' : 'default',
-      width: `${displayWidth}px`,
-      height: `${displayHeight}px`,
-      maxWidth: `${displayWidth}px`,
-      maxHeight: `${displayHeight}px`,
+      width: `${DISPLAY_WIDTH}px`,
+      height: `${DISPLAY_HEIGHT}px`,
       objectFit: 'contain' as const,
+      display: 'block' as const,
+      boxSizing: 'border-box' as const,
     };
     
     if (isDragging) {
@@ -328,7 +320,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   return (
     <div 
       ref={galleryRef}
-      className="fixed inset-0 bg-black/95 backdrop-blur-sm flex flex-col items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black/95 backdrop-blur-sm flex items-center justify-center z-50"
       onClick={handleBackdropClick}
     >
       {/* 顶部控制栏 */}
@@ -399,85 +391,67 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
         </div>
       </div>
 
-      {/* 主图片展示区 */}
-      <div className="flex-1 flex flex-col items-center justify-center w-full relative">
-        <div 
-          ref={imageContainerRef}
-          className="relative flex items-center justify-center"
-          style={{
-            width: `${displayWidth}px`,
-            height: `${displayHeight}px`,
-            minWidth: `${displayWidth}px`,
-            minHeight: `${displayHeight}px`,
-          }}
-        >
-          {isLoading && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            </div>
-          )}
-          
-          {error ? (
-            <div className="flex flex-col items-center justify-center text-white p-4">
-              <AlertCircle className="w-8 h-8 mb-2 text-red-400" />
-              <p className="text-sm mb-1">图片加载失败</p>
-              <p className="text-gray-400 text-xs">{error}</p>
-            </div>
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gray-900 rounded-lg overflow-hidden border border-gray-700">
-              <img
-                ref={imageRef}
-                src={currentImage.url}
-                alt={currentImage.alt || `图片 ${currentIndex + 1}`}
-                className="block"
-                onLoad={() => handleImageLoad(currentImage.id)}
-                onError={() => handleImageError(currentImage.id)}
-                onDoubleClick={handleImageDoubleClick}
-                onMouseDown={handleMouseDown}
-                style={getImageStyle()}
-                draggable={false}
-              />
-            </div>
-          )}
-          
-          {/* 导航箭头 */}
-          {images.length > 1 && showControls && (
-            <>
-              <button
-                onClick={goToPrevious}
-                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-14 p-2 text-white hover:bg-white/20 rounded-full transition-colors backdrop-blur-sm z-10 bg-black/30"
-                title="上一张 (左箭头)"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              
-              <button
-                onClick={goToNext}
-                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-14 p-2 text-white hover:bg-white/20 rounded-full transition-colors backdrop-blur-sm z-10 bg-black/30"
-                title="下一张 (右箭头)"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            </>
-          )}
-        </div>
-        
-        {/* 尺寸提示 */}
-        <div className="mt-4 text-white text-sm">
-          显示尺寸: {displayWidth}px × {displayHeight}px (约30mm×20mm)
-        </div>
-        
-        {/* 缩放提示 */}
-        {isZoomed && (
-          <div className="mt-2 px-4 py-1 bg-black/50 text-white text-sm rounded-full backdrop-blur-sm">
-            双击图片或按 Ctrl+0 重置缩放
+      {/* 主图片展示区 - 绝对固定尺寸 */}
+      <div className="relative" style={{ width: `${DISPLAY_WIDTH}px`, height: `${DISPLAY_HEIGHT}px` }}>
+        {isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-900 rounded-lg">
+            <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
           </div>
         )}
+        
+        {error ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 rounded-lg p-4">
+            <AlertCircle className="w-8 h-8 mb-2 text-red-400" />
+            <p className="text-sm mb-1 text-white">图片加载失败</p>
+            <p className="text-gray-400 text-xs text-center">{error}</p>
+          </div>
+        ) : (
+          <div className="w-full h-full bg-gray-900 rounded-lg overflow-hidden border border-gray-700">
+            <img
+              ref={imageRef}
+              src={currentImage.url}
+              alt={currentImage.alt || `图片 ${currentIndex + 1}`}
+              className="w-full h-full"
+              onLoad={() => handleImageLoad(currentImage.id)}
+              onError={() => handleImageError(currentImage.id)}
+              onDoubleClick={handleImageDoubleClick}
+              onMouseDown={handleMouseDown}
+              style={getImageStyle()}
+              draggable={false}
+            />
+          </div>
+        )}
+        
+        {/* 导航箭头 */}
+        {images.length > 1 && showControls && (
+          <>
+            <button
+              onClick={goToPrevious}
+              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-12 p-2 text-white hover:bg-white/20 rounded-full transition-colors backdrop-blur-sm z-10 bg-black/50"
+              title="上一张 (左箭头)"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            
+            <button
+              onClick={goToNext}
+              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-12 p-2 text-white hover:bg-white/20 rounded-full transition-colors backdrop-blur-sm z-10 bg-black/50"
+              title="下一张 (右箭头)"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </>
+        )}
+      </div>
+      
+      {/* 尺寸指示器 */}
+      <div className="absolute bottom-32 left-1/2 transform -translate-x-1/2 bg-black/70 text-white text-sm px-3 py-1 rounded-full whitespace-nowrap">
+        固定尺寸: {DISPLAY_WIDTH}px × {DISPLAY_HEIGHT}px (30mm×20mm)
       </div>
 
       {/* 底部信息栏 */}
       {(showInfo || showThumbnails) && (
-        <div className="w-full max-w-4xl mt-4 p-4 bg-gradient-to-t from-black/60 to-transparent">
+        <div className="absolute bottom-0 left-0 right-0 z-50 p-4 bg-gradient-to-t from-black/60 to-transparent">
           {/* 图片信息 */}
           {showInfo && currentImage && (
             <div className="flex items-center justify-between mb-4">
@@ -557,6 +531,13 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
               ))}
             </div>
           )}
+        </div>
+      )}
+      
+      {/* 缩放提示 */}
+      {isZoomed && (
+        <div className="absolute bottom-44 left-1/2 transform -translate-x-1/2 bg-black/50 text-white text-sm px-3 py-1 rounded-full backdrop-blur-sm">
+          双击图片或按 Ctrl+0 重置到固定尺寸
         </div>
       )}
     </div>
