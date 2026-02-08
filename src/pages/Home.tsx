@@ -320,7 +320,7 @@ const PostImageGallery = ({
       )}
     </>
   );
-
+};
 export default function Home() {
   const { user } = useAuth()
   const navigate = useNavigate()
