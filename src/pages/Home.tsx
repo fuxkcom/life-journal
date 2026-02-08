@@ -7,7 +7,11 @@ import {
   PenSquare, Users, MessageSquare, BarChart3, Sparkles,
   TrendingUp, Bell, UserPlus, ChevronRight, Smile, Meh, Frown, 
   Angry, Sun, CloudRain, Wind, Thermometer, Clock, MapPin,
-  ZoomIn
+  ZoomIn, Coffee, Music, Gamepad2, BookOpen, Tv, Film, 
+  Utensils, ShoppingBag, Palette, Plane, TrendingUp as TrendingUpIcon,
+  Zap, Target, Star, Trophy, Activity, Compass, Radio, Newspaper,
+  Podcast, Video, Youtube, Instagram, Twitter, Coffee as CoffeeIcon,
+  Cloud, Moon, Sunrise, Wind as WindIcon
 } from 'lucide-react'
 import Layout from '../components/Layout'
 import DateTime from '../components/DateTime'
@@ -36,7 +40,44 @@ const MOOD_CONFIG = {
   angry: { icon: Angry, label: '生气', color: 'text-red-500', bg: 'bg-red-50', border: 'border-red-200' },
 }
 
-// 帖子图片画廊组件
+// 新闻分类
+const NEWS_CATEGORIES = [
+  { id: 'trending', name: '热门资讯', icon: TrendingUpIcon, color: 'text-red-500' },
+  { id: 'tech', name: '科技前沿', icon: Zap, color: 'text-blue-500' },
+  { id: 'lifestyle', name: '生活方式', icon: Coffee, color: 'text-amber-500' },
+  { id: 'entertainment', name: '娱乐', icon: Film, color: 'text-purple-500' },
+  { id: 'sports', name: '体育', icon: Trophy, color: 'text-green-500' },
+]
+
+// 模拟新闻数据
+const mockNews = [
+  { id: 1, title: 'AI助手技术突破，能理解人类情感', category: 'tech', time: '2小时前', source: '科技日报', isHot: true },
+  { id: 2, title: '研究发现：每天散步30分钟可提升幸福感', category: 'lifestyle', time: '4小时前', source: '健康时报' },
+  { id: 3, title: '最新电影评分出炉，这部作品获9.2分', category: 'entertainment', time: '6小时前', source: '影迷网' },
+  { id: 4, title: '电竞比赛结果揭晓，中国战队夺冠', category: 'sports', time: '8小时前', source: '体育在线' },
+  { id: 5, title: '天气预警：周末将迎来今年最强降温', category: 'trending', time: '1小时前', source: '气象局', isHot: true },
+  { id: 6, title: '新的咖啡文化正在年轻人中流行', category: 'lifestyle', time: '3小时前', source: '都市生活' },
+  { id: 7, title: '太空探索新进展，火星照片公布', category: 'tech', time: '5小时前', source: '科学探索' },
+  { id: 8, title: '音乐节阵容公布，大牌云集', category: 'entertainment', time: '7小时前', source: '音乐之声' },
+]
+
+// 趣味小工具
+const FUN_TOOLS = [
+  { icon: Coffee, title: '今日运势', desc: '看看今天的幸运色', color: 'bg-amber-100 text-amber-600' },
+  { icon: Music, title: '心情歌单', desc: '根据心情推荐音乐', color: 'bg-purple-100 text-purple-600' },
+  { icon: BookOpen, title: '每日一书', desc: '推荐好书给你', color: 'bg-emerald-100 text-emerald-600' },
+  { icon: Gamepad2, title: '小游戏', desc: '放松一下大脑', color: 'bg-blue-100 text-blue-600' },
+]
+
+// 活动推荐
+const ACTIVITY_SUGGESTIONS = [
+  { icon: Palette, title: '尝试绘画', desc: '用色彩表达心情', time: '30分钟' },
+  { icon: Utensils, title: '学习新菜', desc: '烹饪治愈心灵', time: '1小时' },
+  { icon: ShoppingBag, title: '整理房间', desc: '断舍离带来清爽', time: '45分钟' },
+  { icon: Plane, title: '计划旅行', desc: '为未来做准备', time: '20分钟' },
+]
+
+// 帖子图片画廊组件（保持原有代码不变）
 const PostImageGallery = ({ 
   post, 
   onImageClick 
@@ -46,7 +87,6 @@ const PostImageGallery = ({
 }) => {
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
   
-  // 将帖子数据转换为图片数组
   const galleryImages = (post.image_urls || []).map((url: string, index: number) => ({
     id: `${post.id}-${index}`,
     url: url,
@@ -63,17 +103,14 @@ const PostImageGallery = ({
     isLiked: post.is_liked || false
   }));
   
-  // 固定显示尺寸：30mm × 20mm ≈ 113px × 76px
-  const displayWidth = 113; // 像素
-  const displayHeight = 76; // 像素
+  const displayWidth = 113;
+  const displayHeight = 76;
   
-  // 单个帖子的缩略图显示
   const renderThumbnails = () => {
     const imageCount = galleryImages.length;
     
     if (imageCount === 0) return null;
     
-    // 1张图片：固定大小
     if (imageCount === 1) {
       return (
         <div style={{ width: `${displayWidth}px`, height: `${displayHeight}px` }}>
@@ -109,7 +146,6 @@ const PostImageGallery = ({
       );
     }
     
-    // 2-4张图片：网格布局，每个图片固定大小
     if (imageCount <= 4) {
       const gridCols = imageCount === 2 ? 'grid-cols-2' : 'grid-cols-2';
       const containerWidth = imageCount === 2 ? displayWidth * 2 + 8 : displayWidth * 2 + 8;
@@ -159,7 +195,6 @@ const PostImageGallery = ({
       );
     }
     
-    // 5张以上图片：3x3网格，每个图片固定大小
     const containerWidth = displayWidth * 3 + 16;
     const containerHeight = displayHeight * 3 + 16;
     
@@ -212,7 +247,6 @@ const PostImageGallery = ({
     <>
       {renderThumbnails()}
       
-      {/* 全屏图片浏览 - 已修改：显示大图 */}
       {selectedImageIndex !== null && (
         <div className="fixed inset-0 z-[9999] bg-black/95 flex items-center justify-center p-2 md:p-4">
           <div 
@@ -232,7 +266,6 @@ const PostImageGallery = ({
             </button>
             
             <div className="relative w-full h-full flex items-center justify-center p-4">
-              {/* 当前图片 - 修改为自适应大图 */}
               <div className="flex items-center justify-center w-full h-full">
                 <div className="max-w-full max-h-full">
                   <img
@@ -243,7 +276,6 @@ const PostImageGallery = ({
                 </div>
               </div>
               
-              {/* 导航箭头 */}
               {galleryImages.length > 1 && (
                 <>
                   <button
@@ -280,7 +312,6 @@ const PostImageGallery = ({
                 </>
               )}
               
-              {/* 图片信息 */}
               <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
                 <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
                   <div className="text-white">
@@ -321,6 +352,7 @@ const PostImageGallery = ({
     </>
   );
 };
+
 export default function Home() {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -342,6 +374,11 @@ export default function Home() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [friendMoods, setFriendMoods] = useState<(Mood & { profile: Profile })[]>([])
   const [activeMenuPostId, setActiveMenuPostId] = useState<string | null>(null)
+  
+  // 新增状态
+  const [activeNewsCategory, setActiveNewsCategory] = useState('trending')
+  const [funFact, setFunFact] = useState('')
+  const [joke, setJoke] = useState('')
 
   // 获取每日格言
   const dailyQuote = useMemo(() => {
@@ -350,9 +387,36 @@ export default function Home() {
     return DAILY_QUOTES[dayOfYear % DAILY_QUOTES.length]
   }, [])
 
+  // 获取有趣的事实
+  const funFacts = useMemo(() => [
+    "微笑可以释放内啡肽，让你感觉更快乐",
+    "咖啡因的效果可以持续长达6小时",
+    "人类平均每天眨眼28000次",
+    "香蕉是浆果，但草莓不是",
+    "蜂蜜永远不会变质",
+    "人的鼻子可以记住5万种不同的气味",
+    "章鱼有三颗心脏",
+    "地球上的树木比银河系中的星星还多",
+    "你无法同时呼吸和吞咽",
+    "闪电的温度比太阳表面高5倍"
+  ], [])
+
+  // 获取笑话
+  const jokes = useMemo(() => [
+    "为什么程序员喜欢黑暗模式？因为光线会吸引bug！",
+    "我告诉我的电脑我需要休息，现在它每次开机都问我'你是认真的吗？'",
+    "为什么数学书很伤心？因为它有太多问题",
+    "我试图给电池充电，但它说我需要先安装更新",
+    "今天我问Siri'生命的意义是什么？'，它说'我找到了一些网络结果'",
+    "为什么科学家不信任原子？因为它们构成了一切"
+  ], [])
+
   useEffect(() => {
     if (user) {
       loadAllData()
+      // 设置有趣的事实和笑话
+      setFunFact(funFacts[Math.floor(Math.random() * funFacts.length)])
+      setJoke(jokes[Math.floor(Math.random() * jokes.length)])
     }
   }, [user])
 
@@ -447,7 +511,6 @@ export default function Home() {
   const loadActivities = async () => {
     if (!user) return
 
-    // 获取最近评论(别人对我帖子的评论)
     const { data: myPosts } = await supabase
       .from('posts')
       .select('id')
@@ -475,7 +538,6 @@ export default function Home() {
       setActivities(activitiesData)
     }
 
-    // 获取未读好友请求数
     const { count } = await supabase
       .from('friendships')
       .select('*', { count: 'exact' })
@@ -633,6 +695,14 @@ export default function Home() {
     return avg
   }, [moods])
 
+  // 过滤新闻
+  const filteredNews = useMemo(() => {
+    if (activeNewsCategory === 'trending') {
+      return mockNews.filter(news => news.isHot)
+    }
+    return mockNews.filter(news => news.category === activeNewsCategory)
+  }, [activeNewsCategory])
+
   if (loading) {
     return (
       <Layout>
@@ -645,247 +715,484 @@ export default function Home() {
 
   return (
     <Layout>
-      <div className="max-w-6xl mx-auto p-4 pb-24 md:pb-4">
-        {/* 顶部：日期天气 + 每日格言 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+      <div className="max-w-7xl mx-auto p-4 pb-24 md:pb-4">
+        {/* 顶部：日期天气 - 保持原有 */}
+        <div className="mb-6">
           <div className="bg-white rounded-3xl shadow-soft p-5">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
               <DateTime />
               <Weather />
             </div>
           </div>
-          
-          {/* 每日格言 */}
-          <div className="bg-gradient-to-br from-terracotta-50 to-cream rounded-3xl shadow-soft p-5 flex flex-col justify-center">
-            <div className="flex items-center gap-2 mb-2">
-              <Sparkles className="w-4 h-4 text-terracotta-500" />
-              <span className="text-xs font-medium text-terracotta-600">每日格言</span>
-            </div>
-            <p className="text-stone-700 text-sm leading-relaxed italic">"{dailyQuote.text}"</p>
-            <p className="text-stone-400 text-xs mt-2 text-right">—— {dailyQuote.author}</p>
-          </div>
         </div>
 
-        {/* 心情记录 + 统计仪表板 */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-          {/* 心情记录卡片 */}
-          <div className="lg:col-span-1 bg-white rounded-3xl shadow-soft p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-stone-900">今日心情</h3>
-              {moodTrend && (
-                <div className="flex items-center gap-1 text-xs text-stone-500">
-                  <TrendingUp className="w-3 h-3" />
-                  <span>近7天均值: {moodTrend.toFixed(1)}</span>
+        {/* 三栏布局 */}
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* 左侧栏 - 个人信息和统计 */}
+          <div className="lg:w-1/4 space-y-6">
+            {/* 每日格言 */}
+            <div className="bg-gradient-to-br from-terracotta-50 to-cream rounded-3xl shadow-soft p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles className="w-4 h-4 text-terracotta-500" />
+                <span className="text-xs font-medium text-terracotta-600">每日格言</span>
+              </div>
+              <p className="text-stone-700 text-sm leading-relaxed italic">"{dailyQuote.text}"</p>
+              <p className="text-stone-400 text-xs mt-2 text-right">—— {dailyQuote.author}</p>
+            </div>
+
+            {/* 心情记录卡片 */}
+            <div className="bg-white rounded-3xl shadow-soft p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-stone-900">今日心情</h3>
+                {moodTrend && (
+                  <div className="flex items-center gap-1 text-xs text-stone-500">
+                    <TrendingUp className="w-3 h-3" />
+                    <span>近7天均值: {moodTrend.toFixed(1)}</span>
+                  </div>
+                )}
+              </div>
+              
+              {todayMood ? (
+                <div className={`p-4 rounded-2xl ${MOOD_CONFIG[todayMood.mood_type].bg} border ${MOOD_CONFIG[todayMood.mood_type].border}`}>
+                  <div className="flex items-center gap-3">
+                    {(() => {
+                      const MoodIcon = MOOD_CONFIG[todayMood.mood_type].icon
+                      return <MoodIcon className={`w-8 h-8 ${MOOD_CONFIG[todayMood.mood_type].color}`} />
+                    })()}
+                    <div>
+                      <p className={`font-medium ${MOOD_CONFIG[todayMood.mood_type].color}`}>
+                        {MOOD_CONFIG[todayMood.mood_type].label}
+                      </p>
+                      {todayMood.note && (
+                        <p className="text-sm text-stone-500 mt-1">{todayMood.note}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : showMoodInput ? (
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    {Object.entries(MOOD_CONFIG).map(([key, config]) => {
+                      const MoodIcon = config.icon
+                      return (
+                        <button
+                          key={key}
+                          onClick={() => setSelectedMood(key)}
+                          className={`p-3 rounded-xl transition-all duration-300 ${
+                            selectedMood === key 
+                              ? `${config.bg} ${config.border} border-2` 
+                              : 'hover:bg-stone-50'
+                          }`}
+                        >
+                          <MoodIcon className={`w-6 h-6 ${selectedMood === key ? config.color : 'text-stone-400'}`} />
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <input
+                    type="text"
+                    value={moodNote}
+                    onChange={(e) => setMoodNote(e.target.value)}
+                    placeholder="记录此刻的心情..."
+                    className="w-full px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-terracotta-500/20"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => { setShowMoodInput(false); setSelectedMood(null); setMoodNote('') }}
+                      className="flex-1 px-4 py-2 text-sm text-stone-500 hover:bg-stone-100 rounded-xl transition-colors"
+                    >
+                      取消
+                    </button>
+                    <button
+                      onClick={saveMood}
+                      disabled={!selectedMood}
+                      className="flex-1 px-4 py-2 text-sm bg-terracotta-500 text-white rounded-xl hover:bg-terracotta-600 transition-colors disabled:opacity-50"
+                    >
+                      保存
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowMoodInput(true)}
+                  className="w-full p-4 border-2 border-dashed border-stone-200 rounded-2xl hover:border-terracotta-300 hover:bg-terracotta-50/50 transition-all duration-300 text-stone-400 hover:text-terracotta-500"
+                >
+                  点击记录今日心情
+                </button>
+              )}
+
+              {/* 最近心情历史 */}
+              {moods.length > 0 && !showMoodInput && (
+                <div className="mt-4 pt-4 border-t border-stone-100">
+                  <p className="text-xs text-stone-400 mb-2">最近记录</p>
+                  <div className="flex gap-1">
+                    {moods.slice(0, 7).map((mood, i) => {
+                      const MoodIcon = MOOD_CONFIG[mood.mood_type].icon
+                      return (
+                        <div key={mood.id} className="flex-1 flex justify-center">
+                          <MoodIcon className={`w-4 h-4 ${MOOD_CONFIG[mood.mood_type].color}`} />
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
               )}
             </div>
-            
-            {todayMood ? (
-              <div className={`p-4 rounded-2xl ${MOOD_CONFIG[todayMood.mood_type].bg} border ${MOOD_CONFIG[todayMood.mood_type].border}`}>
-                <div className="flex items-center gap-3">
-                  {(() => {
-                    const MoodIcon = MOOD_CONFIG[todayMood.mood_type].icon
-                    return <MoodIcon className={`w-8 h-8 ${MOOD_CONFIG[todayMood.mood_type].color}`} />
-                  })()}
-                  <div>
-                    <p className={`font-medium ${MOOD_CONFIG[todayMood.mood_type].color}`}>
-                      {MOOD_CONFIG[todayMood.mood_type].label}
-                    </p>
-                    {todayMood.note && (
-                      <p className="text-sm text-stone-500 mt-1">{todayMood.note}</p>
-                    )}
+
+            {/* 统计仪表板 */}
+            <div className="bg-white rounded-3xl shadow-soft p-5">
+              <h3 className="font-semibold text-stone-900 mb-4">我的数据</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-gradient-to-br from-terracotta-50 to-terracotta-100/50 rounded-2xl p-3 text-center">
+                  <BarChart3 className="w-5 h-5 text-terracotta-500 mx-auto mb-1" />
+                  <p className="text-xl font-bold text-terracotta-600">{stats.weekPosts}</p>
+                  <p className="text-xs text-stone-500">本周发布</p>
+                </div>
+                <div className="bg-gradient-to-br from-green-50 to-green-100/50 rounded-2xl p-3 text-center">
+                  <Users className="w-5 h-5 text-green-500 mx-auto mb-1" />
+                  <p className="text-xl font-bold text-green-600">{stats.friends}</p>
+                  <p className="text-xs text-stone-500">好友数</p>
+                </div>
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-2xl p-3 text-center">
+                  <MessageSquare className="w-5 h-5 text-blue-500 mx-auto mb-1" />
+                  <p className="text-xl font-bold text-blue-600">{stats.comments}</p>
+                  <p className="text-xs text-stone-500">发出评论</p>
+                </div>
+                <div className="bg-gradient-to-br from-amber-50 to-amber-100/50 rounded-2xl p-3 text-center">
+                  <PenSquare className="w-5 h-5 text-amber-500 mx-auto mb-1" />
+                  <p className="text-xl font-bold text-amber-600">{stats.totalPosts}</p>
+                  <p className="text-xs text-stone-500">累计记录</p>
+                </div>
+              </div>
+            </div>
+
+            {/* 快捷操作 */}
+            <div className="bg-white rounded-3xl shadow-soft p-5">
+              <h3 className="font-semibold text-stone-900 mb-4">快捷操作</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <button 
+                  onClick={() => navigate('/new-post')}
+                  className="flex flex-col items-center gap-2 p-3 rounded-2xl hover:bg-terracotta-50 transition-colors group"
+                >
+                  <div className="w-10 h-10 bg-terracotta-100 rounded-xl flex items-center justify-center group-hover:bg-terracotta-200 transition-colors">
+                    <PenSquare className="w-5 h-5 text-terracotta-600" />
                   </div>
-                </div>
+                  <span className="text-xs text-stone-600">发布记录</span>
+                </button>
+                <button 
+                  onClick={() => navigate('/friends')}
+                  className="flex flex-col items-center gap-2 p-3 rounded-2xl hover:bg-green-50 transition-colors group relative"
+                >
+                  <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center group-hover:bg-green-200 transition-colors">
+                    <UserPlus className="w-5 h-5 text-green-600" />
+                  </div>
+                  <span className="text-xs text-stone-600">添加好友</span>
+                  {unreadCount > 0 && (
+                    <span className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
+                <button 
+                  onClick={() => navigate('/chat')}
+                  className="flex flex-col items-center gap-2 p-3 rounded-2xl hover:bg-blue-50 transition-colors group"
+                >
+                  <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+                    <MessageCircle className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <span className="text-xs text-stone-600">聊天</span>
+                </button>
+                <button 
+                  onClick={() => navigate('/profile')}
+                  className="flex flex-col items-center gap-2 p-3 rounded-2xl hover:bg-amber-50 transition-colors group"
+                >
+                  <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center group-hover:bg-amber-200 transition-colors">
+                    <Users className="w-5 h-5 text-amber-600" />
+                  </div>
+                  <span className="text-xs text-stone-600">我的主页</span>
+                </button>
               </div>
-            ) : showMoodInput ? (
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  {Object.entries(MOOD_CONFIG).map(([key, config]) => {
-                    const MoodIcon = config.icon
-                    return (
-                      <button
-                        key={key}
-                        onClick={() => setSelectedMood(key)}
-                        className={`p-3 rounded-xl transition-all duration-300 ${
-                          selectedMood === key 
-                            ? `${config.bg} ${config.border} border-2` 
-                            : 'hover:bg-stone-50'
-                        }`}
-                      >
-                        <MoodIcon className={`w-6 h-6 ${selectedMood === key ? config.color : 'text-stone-400'}`} />
-                      </button>
-                    )
-                  })}
-                </div>
-                <input
-                  type="text"
-                  value={moodNote}
-                  onChange={(e) => setMoodNote(e.target.value)}
-                  placeholder="记录此刻的心情..."
-                  className="w-full px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-terracotta-500/20"
+            </div>
+          </div>
+
+          {/* 中间栏 - 主要内容和动态 */}
+          <div className="lg:w-2/4 space-y-6">
+            {/* 快速发布 */}
+            <div className="bg-white rounded-3xl shadow-soft p-5">
+              <h3 className="font-semibold text-stone-900 mb-4">分享新鲜事</h3>
+              <div className="flex gap-3">
+                <textarea
+                  value={quickPostContent}
+                  onChange={(e) => setQuickPostContent(e.target.value)}
+                  placeholder="分享你的生活点滴..."
+                  className="flex-1 px-4 py-3 bg-stone-50 border border-stone-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-terracotta-500/20 resize-none h-20"
                 />
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => { setShowMoodInput(false); setSelectedMood(null); setMoodNote('') }}
-                    className="flex-1 px-4 py-2 text-sm text-stone-500 hover:bg-stone-100 rounded-xl transition-colors"
-                  >
-                    取消
-                  </button>
-                  <button
-                    onClick={saveMood}
-                    disabled={!selectedMood}
-                    className="flex-1 px-4 py-2 text-sm bg-terracotta-500 text-white rounded-xl hover:bg-terracotta-600 transition-colors disabled:opacity-50"
-                  >
-                    保存
-                  </button>
-                </div>
+                <button
+                  onClick={handleQuickPost}
+                  disabled={!quickPostContent.trim() || quickPosting}
+                  className="self-end px-6 py-3 bg-terracotta-500 text-white rounded-2xl hover:bg-terracotta-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  <Send className="w-4 h-4" />
+                  <span className="hidden sm:inline">发布</span>
+                </button>
               </div>
-            ) : (
-              <button
-                onClick={() => setShowMoodInput(true)}
-                className="w-full p-4 border-2 border-dashed border-stone-200 rounded-2xl hover:border-terracotta-300 hover:bg-terracotta-50/50 transition-all duration-300 text-stone-400 hover:text-terracotta-500"
-              >
-                点击记录今日心情
-              </button>
-            )}
+            </div>
 
-            {/* 最近心情历史 */}
-            {moods.length > 0 && !showMoodInput && (
-              <div className="mt-4 pt-4 border-t border-stone-100">
-                <p className="text-xs text-stone-400 mb-2">最近记录</p>
-                <div className="flex gap-1">
-                  {moods.slice(0, 7).map((mood, i) => {
-                    const MoodIcon = MOOD_CONFIG[mood.mood_type].icon
-                    return (
-                      <div key={mood.id} className="flex-1 flex justify-center">
-                        <MoodIcon className={`w-4 h-4 ${MOOD_CONFIG[mood.mood_type].color}`} />
+            {/* 好友动态列表 */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-stone-900">好友动态</h2>
+                <button 
+                  onClick={() => loadPosts()}
+                  className="text-sm text-terracotta-500 hover:text-terracotta-600 transition-colors"
+                >
+                  刷新
+                </button>
+              </div>
+
+              {posts.length === 0 ? (
+                <div className="text-center py-16 bg-white rounded-3xl shadow-soft">
+                  <div className="w-16 h-16 bg-terracotta-100 rounded-3xl flex items-center justify-center mx-auto mb-4">
+                    <Image className="w-8 h-8 text-terracotta-500" />
+                  </div>
+                  <p className="text-stone-500 text-lg">还没有动态</p>
+                  <p className="text-stone-400 mt-1">发布你的第一条生活记录吧</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {posts.map((post) => (
+                    <div key={post.id} className="bg-white rounded-3xl shadow-soft overflow-hidden transition-all duration-300 hover:shadow-soft-lg">
+                      {/* Post Header */}
+                      <div className="p-4 flex items-center gap-3">
+                        <div className="w-11 h-11 rounded-2xl bg-terracotta-100 flex items-center justify-center overflow-hidden">
+                          {post.profile?.avatar_url ? (
+                            <img src={post.profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-terracotta-600 font-medium">
+                              {post.profile?.display_name?.[0] || post.profile?.username?.[0]}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-stone-900">{post.profile?.display_name || post.profile?.username}</p>
+                          <div className="flex items-center gap-3 text-xs text-stone-400">
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {formatTime(post.created_at)}
+                            </span>
+                            {post.show_location && post.location_name && (
+                              <span className="flex items-center gap-1">
+                                <MapPin className="w-3 h-3" />
+                                {post.location_name}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="relative">
+                          <button 
+                            onClick={() => setActiveMenuPostId(activeMenuPostId === post.id ? null : post.id)}
+                            className="p-2 hover:bg-stone-100 rounded-xl transition-colors duration-300"
+                          >
+                            <MoreHorizontal className="w-5 h-5 text-stone-400" />
+                          </button>
+                          {activeMenuPostId === post.id && (
+                            <div className="absolute right-0 top-10 bg-white rounded-xl shadow-lg border border-stone-100 py-1 z-10 min-w-[120px]">
+                              {post.user_id === user?.id && (
+                                <button
+                                  onClick={() => deletePost(post.id)}
+                                  className="w-full px-4 py-2 text-left text-sm text-red-500 hover:bg-red-50 transition-colors"
+                                >
+                                  删除
+                                </button>
+                              )}
+                              <button
+                                onClick={() => setActiveMenuPostId(null)}
+                                className="w-full px-4 py-2 text-left text-sm text-stone-600 hover:bg-stone-50 transition-colors"
+                              >
+                                取消
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
 
-          {/* 统计仪表板 */}
-          <div className="lg:col-span-2 bg-white rounded-3xl shadow-soft p-5">
-            <h3 className="font-semibold text-stone-900 mb-4">我的数据</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div className="bg-gradient-to-br from-terracotta-50 to-terracotta-100/50 rounded-2xl p-4 text-center">
-                <BarChart3 className="w-6 h-6 text-terracotta-500 mx-auto mb-2" />
-                <p className="text-2xl font-bold text-terracotta-600">{stats.weekPosts}</p>
-                <p className="text-xs text-stone-500">本周发布</p>
-              </div>
-              <div className="bg-gradient-to-br from-green-50 to-green-100/50 rounded-2xl p-4 text-center">
-                <Users className="w-6 h-6 text-green-500 mx-auto mb-2" />
-                <p className="text-2xl font-bold text-green-600">{stats.friends}</p>
-                <p className="text-xs text-stone-500">好友数</p>
-              </div>
-              <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-2xl p-4 text-center">
-                <MessageSquare className="w-6 h-6 text-blue-500 mx-auto mb-2" />
-                <p className="text-2xl font-bold text-blue-600">{stats.comments}</p>
-                <p className="text-xs text-stone-500">发出评论</p>
-              </div>
-              <div className="bg-gradient-to-br from-amber-50 to-amber-100/50 rounded-2xl p-4 text-center">
-                <PenSquare className="w-6 h-6 text-amber-500 mx-auto mb-2" />
-                <p className="text-2xl font-bold text-amber-600">{stats.totalPosts}</p>
-                <p className="text-xs text-stone-500">累计记录</p>
-              </div>
+                      {/* Post Content */}
+                      <div className="px-4 pb-4">
+                        <p className="text-stone-700 whitespace-pre-wrap leading-relaxed">{post.content}</p>
+                      </div>
+
+                      {/* Post Images */}
+                      {post.image_urls && post.image_urls.length > 0 && (
+                        <div className="px-4 pb-4">
+                          <PostImageGallery 
+                            post={post}
+                            onImageClick={() => {
+                              console.log('点击了帖子图片:', post.id);
+                            }}
+                          />
+                        </div>
+                      )}
+
+                      {/* Actions */}
+                      <div className="p-4 flex items-center gap-6 border-t border-stone-100">
+                        <button 
+                          onClick={() => toggleLike(post.id, post.is_liked)}
+                          className={`flex items-center gap-2 transition-colors duration-300 ${
+                            post.is_liked ? 'text-red-500' : 'text-stone-400 hover:text-red-500'
+                          }`}
+                        >
+                          <Heart className={`w-5 h-5 ${post.is_liked ? 'fill-current' : ''}`} />
+                          <span className="text-sm">{post.likes_count || '喜欢'}</span>
+                        </button>
+                        <button 
+                          onClick={() => setShowComments({ ...showComments, [post.id]: !showComments[post.id] })}
+                          className="flex items-center gap-2 text-stone-400 hover:text-terracotta-500 transition-colors duration-300"
+                        >
+                          <MessageCircle className="w-5 h-5" />
+                          <span className="text-sm">{post.comments.length || '评论'}</span>
+                        </button>
+                      </div>
+
+                      {/* Comments Section */}
+                      {showComments[post.id] && (
+                        <div className="border-t border-stone-100">
+                          {post.comments.length > 0 && (
+                            <div className="p-4 space-y-3">
+                              {post.comments.map((comment) => (
+                                <div key={comment.id} className="flex gap-3">
+                                  <div className="w-8 h-8 rounded-xl bg-stone-100 flex items-center justify-center shrink-0 overflow-hidden">
+                                    {comment.profile?.avatar_url ? (
+                                      <img src={comment.profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                                    ) : (
+                                      <span className="text-xs text-stone-600">{comment.profile?.display_name?.[0]}</span>
+                                    )}
+                                  </div>
+                                  <div className="flex-1 bg-stone-50 rounded-2xl p-3">
+                                    <p className="text-sm font-medium text-stone-900">{comment.profile?.display_name}</p>
+                                    <p className="text-sm text-stone-600">{comment.content}</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Comment Input */}
+                          <div className="p-4 border-t border-stone-100 flex gap-3">
+                            <input
+                              type="text"
+                              value={commentInputs[post.id] || ''}
+                              onChange={(e) => setCommentInputs({ ...commentInputs, [post.id]: e.target.value })}
+                              placeholder="写评论..."
+                              className="flex-1 px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-terracotta-500/20 focus:border-terracotta-400 transition-all duration-300"
+                              onKeyPress={(e) => e.key === 'Enter' && addComment(post.id)}
+                            />
+                            <button
+                              onClick={() => addComment(post.id)}
+                              className="p-2.5 text-terracotta-600 hover:bg-terracotta-50 rounded-xl transition-colors duration-300"
+                            >
+                              <Send className="w-5 h-5" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
-        </div>
 
-        {/* 快速发布 + 快捷操作 + 最近活动 */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-          {/* 快速发布 */}
-          <div className="lg:col-span-2 bg-white rounded-3xl shadow-soft p-5">
-            <h3 className="font-semibold text-stone-900 mb-4">快速发布</h3>
-            <div className="flex gap-3">
-              <textarea
-                value={quickPostContent}
-                onChange={(e) => setQuickPostContent(e.target.value)}
-                placeholder="分享你的生活点滴..."
-                className="flex-1 px-4 py-3 bg-stone-50 border border-stone-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-terracotta-500/20 resize-none h-20"
-              />
-              <button
-                onClick={handleQuickPost}
-                disabled={!quickPostContent.trim() || quickPosting}
-                className="self-end px-6 py-3 bg-terracotta-500 text-white rounded-2xl hover:bg-terracotta-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                <Send className="w-4 h-4" />
-                <span className="hidden sm:inline">发布</span>
+          {/* 右侧栏 - 新闻和趣味内容 */}
+          <div className="lg:w-1/4 space-y-6">
+            {/* 实时新闻 */}
+            <div className="bg-white rounded-3xl shadow-soft p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-stone-900">实时资讯</h3>
+                <Newspaper className="w-5 h-5 text-stone-400" />
+              </div>
+              
+              {/* 新闻分类 */}
+              <div className="flex flex-wrap gap-2 mb-4">
+                {NEWS_CATEGORIES.map((category) => (
+                  <button
+                    key={category.id}
+                    onClick={() => setActiveNewsCategory(category.id)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                      activeNewsCategory === category.id
+                        ? 'bg-stone-900 text-white'
+                        : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                    }`}
+                  >
+                    {category.name}
+                  </button>
+                ))}
+              </div>
+              
+              {/* 新闻列表 */}
+              <div className="space-y-3">
+                {filteredNews.slice(0, 5).map((news) => (
+                  <div key={news.id} className="p-3 rounded-xl hover:bg-stone-50 transition-colors cursor-pointer">
+                    <div className="flex items-start gap-2">
+                      {news.isHot && (
+                        <div className="flex items-center gap-1 bg-red-50 text-red-600 px-2 py-0.5 rounded-full text-xs font-medium">
+                          <Zap className="w-3 h-3" />
+                          热
+                        </div>
+                      )}
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-stone-900 line-clamp-2">{news.title}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs text-stone-400">{news.source}</span>
+                          <span className="text-xs text-stone-300">•</span>
+                          <span className="text-xs text-stone-400">{news.time}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              <button className="w-full mt-4 px-4 py-2.5 text-sm text-terracotta-500 hover:bg-terracotta-50 rounded-xl transition-colors flex items-center justify-center gap-1">
+                查看更多资讯
+                <ChevronRight className="w-4 h-4" />
               </button>
             </div>
-          </div>
 
-          {/* 快捷操作 */}
-          <div className="bg-white rounded-3xl shadow-soft p-5">
-            <h3 className="font-semibold text-stone-900 mb-4">快捷操作</h3>
-            <div className="grid grid-cols-2 gap-3">
-              <button 
-                onClick={() => navigate('/new-post')}
-                className="flex flex-col items-center gap-2 p-3 rounded-2xl hover:bg-terracotta-50 transition-colors group"
-              >
-                <div className="w-10 h-10 bg-terracotta-100 rounded-xl flex items-center justify-center group-hover:bg-terracotta-200 transition-colors">
-                  <PenSquare className="w-5 h-5 text-terracotta-600" />
-                </div>
-                <span className="text-xs text-stone-600">发布记录</span>
-              </button>
-              <button 
-                onClick={() => navigate('/friends')}
-                className="flex flex-col items-center gap-2 p-3 rounded-2xl hover:bg-green-50 transition-colors group relative"
-              >
-                <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center group-hover:bg-green-200 transition-colors">
-                  <UserPlus className="w-5 h-5 text-green-600" />
-                </div>
-                <span className="text-xs text-stone-600">添加好友</span>
-                {unreadCount > 0 && (
-                  <span className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                    {unreadCount}
-                  </span>
-                )}
-              </button>
-              <button 
-                onClick={() => navigate('/chat')}
-                className="flex flex-col items-center gap-2 p-3 rounded-2xl hover:bg-blue-50 transition-colors group"
-              >
-                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center group-hover:bg-blue-200 transition-colors">
-                  <MessageCircle className="w-5 h-5 text-blue-600" />
-                </div>
-                <span className="text-xs text-stone-600">聊天</span>
-              </button>
-              <button 
-                onClick={() => navigate('/profile')}
-                className="flex flex-col items-center gap-2 p-3 rounded-2xl hover:bg-amber-50 transition-colors group"
-              >
-                <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center group-hover:bg-amber-200 transition-colors">
-                  <Users className="w-5 h-5 text-amber-600" />
-                </div>
-                <span className="text-xs text-stone-600">我的主页</span>
-              </button>
+            {/* 有趣的事实 */}
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-3xl shadow-soft p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Sparkles className="w-5 h-5 text-blue-500" />
+                <h3 className="font-semibold text-stone-900">你知道吗？</h3>
+              </div>
+              <p className="text-sm text-stone-700 leading-relaxed">{funFact}</p>
             </div>
-          </div>
-        </div>
 
-        {/* 好友心情状态 + 最近活动 */}
-        {(friendMoods.length > 0 || activities.length > 0) && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+            {/* 每日一笑 */}
+            <div className="bg-gradient-to-br from-amber-50 to-amber-100/50 rounded-3xl shadow-soft p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Smile className="w-5 h-5 text-amber-500" />
+                <h3 className="font-semibold text-stone-900">每日一笑</h3>
+              </div>
+              <p className="text-sm text-stone-700 leading-relaxed italic">"{joke}"</p>
+            </div>
+
             {/* 好友今日心情 */}
             {friendMoods.length > 0 && (
               <div className="bg-white rounded-3xl shadow-soft p-5">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold text-stone-900">好友今日心情</h3>
+                  <h3 className="font-semibold text-stone-900">好友心情</h3>
+                  <Users className="w-5 h-5 text-stone-400" />
                 </div>
                 <div className="space-y-3">
-                  {friendMoods.slice(0, 5).map((mood) => {
+                  {friendMoods.slice(0, 4).map((mood) => {
                     const MoodIcon = MOOD_CONFIG[mood.mood_type].icon
                     return (
                       <div key={mood.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-stone-50 transition-colors">
-                        <div className="w-9 h-9 rounded-xl bg-terracotta-100 flex items-center justify-center overflow-hidden">
+                        <div className="w-8 h-8 rounded-xl bg-terracotta-100 flex items-center justify-center overflow-hidden">
                           {mood.profile?.avatar_url ? (
                             <img src={mood.profile.avatar_url} alt="" className="w-full h-full object-cover" />
                           ) : (
-                            <span className="text-terracotta-600 text-sm font-medium">
+                            <span className="text-terracotta-600 text-xs font-medium">
                               {mood.profile?.display_name?.[0] || mood.profile?.username?.[0]}
                             </span>
                           )}
@@ -894,7 +1201,7 @@ export default function Home() {
                           <p className="text-sm font-medium text-stone-800">{mood.profile?.display_name || mood.profile?.username}</p>
                           {mood.note && <p className="text-xs text-stone-400 truncate">{mood.note}</p>}
                         </div>
-                        <MoodIcon className={`w-5 h-5 ${MOOD_CONFIG[mood.mood_type].color}`} />
+                        <MoodIcon className={`w-4 h-4 ${MOOD_CONFIG[mood.mood_type].color}`} />
                       </div>
                     )
                   })}
@@ -902,191 +1209,57 @@ export default function Home() {
               </div>
             )}
 
-            {/* 最近活动 */}
-            {activities.length > 0 && (
-              <div className="bg-white rounded-3xl shadow-soft p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold text-stone-900">最近活动</h3>
-                  <Bell className="w-4 h-4 text-stone-400" />
-                </div>
-                <div className="space-y-3">
-                  {activities.map((activity) => (
-                    <div key={activity.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-stone-50 transition-colors">
-                      <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center">
-                        <MessageCircle className="w-4 h-4 text-blue-500" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm text-stone-700">{activity.content}</p>
-                        <p className="text-xs text-stone-400">{formatTime(activity.created_at)}</p>
-                      </div>
+            {/* 趣味小工具 */}
+            <div className="bg-white rounded-3xl shadow-soft p-5">
+              <h3 className="font-semibold text-stone-900 mb-4">趣味工具</h3>
+              <div className="grid grid-cols-2 gap-3">
+                {FUN_TOOLS.map((tool, index) => (
+                  <button
+                    key={index}
+                    className="flex flex-col items-center gap-2 p-3 rounded-2xl hover:bg-stone-50 transition-colors group"
+                    onClick={() => {
+                      // 这里可以添加点击事件
+                      if (index === 0) {
+                        const luckyColors = ['红色', '蓝色', '绿色', '黄色', '紫色', '粉色', '白色']
+                        const color = luckyColors[Math.floor(Math.random() * luckyColors.length)]
+                        alert(`今天的幸运色是：${color}！试试穿戴这种颜色的物品吧～`)
+                      }
+                    }}
+                  >
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${tool.color.split(' ')[0]}`}>
+                      <tool.icon className={`w-5 h-5 ${tool.color.split(' ')[1]}`} />
                     </div>
-                  ))}
-                </div>
+                    <div className="text-center">
+                      <p className="text-xs font-medium text-stone-800">{tool.title}</p>
+                      <p className="text-xs text-stone-500">{tool.desc}</p>
+                    </div>
+                  </button>
+                ))}
               </div>
-            )}
-          </div>
-        )}
-
-        {/* 好友动态列表 */}
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-stone-900">好友动态</h2>
-          <button 
-            onClick={() => loadPosts()}
-            className="text-sm text-terracotta-500 hover:text-terracotta-600 transition-colors"
-          >
-            刷新
-          </button>
-        </div>
-
-        {posts.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-3xl shadow-soft">
-            <div className="w-16 h-16 bg-terracotta-100 rounded-3xl flex items-center justify-center mx-auto mb-4">
-              <Image className="w-8 h-8 text-terracotta-500" />
             </div>
-            <p className="text-stone-500 text-lg">还没有动态</p>
-            <p className="text-stone-400 mt-1">发布你的第一条生活记录吧</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {posts.map((post) => (
-              <div key={post.id} className="bg-white rounded-3xl shadow-soft overflow-hidden transition-all duration-300 hover:shadow-soft-lg">
-                {/* Post Header */}
-                <div className="p-4 flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-2xl bg-terracotta-100 flex items-center justify-center overflow-hidden">
-                    {post.profile?.avatar_url ? (
-                      <img src={post.profile.avatar_url} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-terracotta-600 font-medium">
-                        {post.profile?.display_name?.[0] || post.profile?.username?.[0]}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium text-stone-900">{post.profile?.display_name || post.profile?.username}</p>
-                    <div className="flex items-center gap-3 text-xs text-stone-400">
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {formatTime(post.created_at)}
-                      </span>
-                      {post.show_location && post.location_name && (
-                        <span className="flex items-center gap-1">
-                          <MapPin className="w-3 h-3" />
-                          {post.location_name}
-                        </span>
-                      )}
+
+            {/* 活动推荐 */}
+            <div className="bg-white rounded-3xl shadow-soft p-5">
+              <h3 className="font-semibold text-stone-900 mb-4">今日活动推荐</h3>
+              <div className="space-y-3">
+                {ACTIVITY_SUGGESTIONS.map((activity, index) => (
+                  <div key={index} className="flex items-center gap-3 p-2 rounded-xl hover:bg-stone-50 transition-colors">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+                      <activity.icon className="w-5 h-5 text-emerald-600" />
                     </div>
-                  </div>
-                  <div className="relative">
-                    <button 
-                      onClick={() => setActiveMenuPostId(activeMenuPostId === post.id ? null : post.id)}
-                      className="p-2 hover:bg-stone-100 rounded-xl transition-colors duration-300"
-                    >
-                      <MoreHorizontal className="w-5 h-5 text-stone-400" />
-                    </button>
-                    {activeMenuPostId === post.id && (
-                      <div className="absolute right-0 top-10 bg-white rounded-xl shadow-lg border border-stone-100 py-1 z-10 min-w-[120px]">
-                        {post.user_id === user?.id && (
-                          <button
-                            onClick={() => deletePost(post.id)}
-                            className="w-full px-4 py-2 text-left text-sm text-red-500 hover:bg-red-50 transition-colors"
-                          >
-                            删除
-                          </button>
-                        )}
-                        <button
-                          onClick={() => setActiveMenuPostId(null)}
-                          className="w-full px-4 py-2 text-left text-sm text-stone-600 hover:bg-stone-50 transition-colors"
-                        >
-                          取消
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Post Content */}
-                <div className="px-4 pb-4">
-                  <p className="text-stone-700 whitespace-pre-wrap leading-relaxed">{post.content}</p>
-                </div>
-
-                {/* Post Images - 使用增强版画廊 */}
-                {post.image_urls && post.image_urls.length > 0 && (
-                  <div className="px-4 pb-4">
-                    <PostImageGallery 
-                      post={post}
-                      onImageClick={() => {
-                        console.log('点击了帖子图片:', post.id);
-                      }}
-                    />
-                  </div>
-                )}
-
-                {/* Actions */}
-                <div className="p-4 flex items-center gap-6 border-t border-stone-100">
-                  <button 
-                    onClick={() => toggleLike(post.id, post.is_liked)}
-                    className={`flex items-center gap-2 transition-colors duration-300 ${
-                      post.is_liked ? 'text-red-500' : 'text-stone-400 hover:text-red-500'
-                    }`}
-                  >
-                    <Heart className={`w-5 h-5 ${post.is_liked ? 'fill-current' : ''}`} />
-                    <span className="text-sm">{post.likes_count || '喜欢'}</span>
-                  </button>
-                  <button 
-                    onClick={() => setShowComments({ ...showComments, [post.id]: !showComments[post.id] })}
-                    className="flex items-center gap-2 text-stone-400 hover:text-terracotta-500 transition-colors duration-300"
-                  >
-                    <MessageCircle className="w-5 h-5" />
-                    <span className="text-sm">{post.comments.length || '评论'}</span>
-                  </button>
-                </div>
-
-                {/* Comments Section */}
-                {showComments[post.id] && (
-                  <div className="border-t border-stone-100">
-                    {post.comments.length > 0 && (
-                      <div className="p-4 space-y-3">
-                        {post.comments.map((comment) => (
-                          <div key={comment.id} className="flex gap-3">
-                            <div className="w-8 h-8 rounded-xl bg-stone-100 flex items-center justify-center shrink-0 overflow-hidden">
-                              {comment.profile?.avatar_url ? (
-                                <img src={comment.profile.avatar_url} alt="" className="w-full h-full object-cover" />
-                              ) : (
-                                <span className="text-xs text-stone-600">{comment.profile?.display_name?.[0]}</span>
-                              )}
-                            </div>
-                            <div className="flex-1 bg-stone-50 rounded-2xl p-3">
-                              <p className="text-sm font-medium text-stone-900">{comment.profile?.display_name}</p>
-                              <p className="text-sm text-stone-600">{comment.content}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Comment Input */}
-                    <div className="p-4 border-t border-stone-100 flex gap-3">
-                      <input
-                        type="text"
-                        value={commentInputs[post.id] || ''}
-                        onChange={(e) => setCommentInputs({ ...commentInputs, [post.id]: e.target.value })}
-                        placeholder="写评论..."
-                        className="flex-1 px-4 py-2.5 bg-stone-50 border border-stone-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-terracotta-500/20 focus:border-terracotta-400 transition-all duration-300"
-                        onKeyPress={(e) => e.key === 'Enter' && addComment(post.id)}
-                      />
-                      <button
-                        onClick={() => addComment(post.id)}
-                        className="p-2.5 text-terracotta-600 hover:bg-terracotta-50 rounded-xl transition-colors duration-300"
-                      >
-                        <Send className="w-5 h-5" />
-                      </button>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-stone-800">{activity.title}</p>
+                      <p className="text-xs text-stone-500">{activity.desc}</p>
                     </div>
+                    <span className="text-xs text-stone-400 bg-stone-100 px-2 py-1 rounded-full">
+                      {activity.time}
+                    </span>
                   </div>
-                )}
+                ))}
               </div>
-            ))}
+            </div>
           </div>
-        )}
+        </div>
       </div>
     </Layout>
   )
