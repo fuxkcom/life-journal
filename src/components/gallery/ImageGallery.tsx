@@ -31,10 +31,6 @@ interface ImageGalleryProps {
   maxHeight?: string;
   maxWidth?: string;
   defaultZoom?: number;
-  thumbnailSize?: {
-    width: string;
-    height: string;
-  };
   onLike?: (imageId: string) => void;
   onShare?: (imageId: string) => void;
   onDownload?: (imageId: string) => void;
@@ -47,11 +43,10 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   showThumbnails = true,
   showControls = true,
   showInfo = true,
-  aspectRatio = 'contain',
-  maxHeight = '80vh',
-  maxWidth = '90vw',
-  defaultZoom = 0.8,
-  thumbnailSize = { width: '113px', height: '76px' }, // 30mm ≈ 113px, 20mm ≈ 76px (在96dpi下)
+  aspectRatio = 'auto', // 改为auto以保持原始比例
+  maxHeight = '60vh', // 减小最大高度
+  maxWidth = '80vw', // 减小最大宽度
+  defaultZoom = 0.3, // 默认缩放为30%
   onLike,
   onShare,
   onDownload
@@ -67,6 +62,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 });
   const [isZoomed, setIsZoomed] = useState(false);
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   
   const galleryRef = useRef<HTMLDivElement>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
@@ -74,6 +70,38 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   
   // 当前图片
   const currentImage = images[currentIndex];
+
+  // 计算30mm×20mm在像素中的大小
+  const getPixelSize = () => {
+    // 30mm = 3cm, 20mm = 2cm
+    // 在96dpi屏幕上，1cm = 37.8px
+    // 所以30mm = 3cm × 37.8px/cm = 113.4px
+    // 20mm = 2cm × 37.8px/cm = 75.6px
+    return {
+      width: 113, // 30mm对应的像素
+      height: 76   // 20mm对应的像素
+    };
+  };
+
+  // 更新容器尺寸
+  useEffect(() => {
+    const updateContainerSize = () => {
+      if (imageContainerRef.current) {
+        const rect = imageContainerRef.current.getBoundingClientRect();
+        setContainerSize({
+          width: rect.width,
+          height: rect.height
+        });
+      }
+    };
+
+    updateContainerSize();
+    window.addEventListener('resize', updateContainerSize);
+    
+    return () => {
+      window.removeEventListener('resize', updateContainerSize);
+    };
+  }, []);
 
   // 重置图片位置和缩放
   const resetImageTransform = useCallback(() => {
@@ -84,21 +112,21 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
 
   // 处理鼠标滚轮缩放
   const handleWheel = useCallback((e: WheelEvent) => {
-    if (!galleryRef.current || !isFullscreen) return;
+    if (!galleryRef.current) return;
     
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
       const delta = e.deltaY > 0 ? -0.05 : 0.05;
       setZoomLevel(prev => {
         const newZoom = prev + delta;
-        const clampedZoom = Math.max(0.1, Math.min(3, newZoom));
+        const clampedZoom = Math.max(0.1, Math.min(5, newZoom));
         if (clampedZoom !== defaultZoom) {
           setIsZoomed(true);
         }
         return clampedZoom;
       });
     }
-  }, [isFullscreen, defaultZoom]);
+  }, [defaultZoom]);
 
   // 处理鼠标拖动
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -119,7 +147,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
     const newX = e.clientX - dragStart.x;
     const newY = e.clientY - dragStart.y;
     
-    // 限制拖动范围，防止图片被拖出可视区域
+    // 限制拖动范围
     const container = imageContainerRef.current;
     const image = imageRef.current;
     if (container && image) {
@@ -250,7 +278,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   // 缩放控制
   const handleZoomIn = () => {
     setZoomLevel((prev) => {
-      const newZoom = Math.min(prev + 0.1, 3);
+      const newZoom = Math.min(prev + 0.1, 5);
       if (Math.abs(newZoom - defaultZoom) > 0.01) {
         setIsZoomed(true);
       }
@@ -291,6 +319,8 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
 
   // 获取图片容器样式
   const getImageContainerStyle = () => {
+    const pixelSize = getPixelSize();
+    
     if (aspectRatio === 'contain') {
       return {
         maxWidth: maxWidth,
@@ -317,9 +347,14 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
 
   // 获取图片样式
   const getImageStyle = () => {
+    const pixelSize = getPixelSize();
     const baseStyle = {
       transform: `scale(${zoomLevel}) translate(${imagePosition.x}px, ${imagePosition.y}px)`,
       cursor: zoomLevel > defaultZoom ? 'grab' : 'default',
+      // 设置固定的物理尺寸
+      width: `${pixelSize.width}px`,
+      height: `${pixelSize.height}px`,
+      objectFit: 'contain' as const,
     };
     
     if (isDragging) {
@@ -382,14 +417,14 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
                 className="px-3 py-1 text-sm text-white hover:bg-white/20 rounded-full transition-colors"
                 title="重置缩放 (Ctrl+0)"
               >
-                {getDisplayPercentage()}%
+                {getDisplayPercentage()}% (30mm×20mm)
               </button>
               
               <button
                 onClick={handleZoomIn}
                 className="p-2 text-white hover:bg-white/20 rounded-full transition-colors disabled:opacity-50"
                 title="放大 (Ctrl++)"
-                disabled={zoomLevel >= 3}
+                disabled={zoomLevel >= 5}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -438,18 +473,25 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
               <p className="text-gray-400 text-sm">{error}</p>
             </div>
           ) : (
-            <img
-              ref={imageRef}
-              src={currentImage.url}
-              alt={currentImage.alt || `图片 ${currentIndex + 1}`}
-              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl select-none"
-              onLoad={() => handleImageLoad(currentImage.id)}
-              onError={() => handleImageError(currentImage.id)}
-              onDoubleClick={handleImageDoubleClick}
-              onMouseDown={handleMouseDown}
-              style={getImageStyle()}
-              draggable={false}
-            />
+            <div className="relative">
+              <img
+                ref={imageRef}
+                src={currentImage.url}
+                alt={currentImage.alt || `图片 ${currentIndex + 1}`}
+                className="rounded-lg shadow-2xl select-none bg-gray-900"
+                onLoad={() => handleImageLoad(currentImage.id)}
+                onError={() => handleImageError(currentImage.id)}
+                onDoubleClick={handleImageDoubleClick}
+                onMouseDown={handleMouseDown}
+                style={getImageStyle()}
+                draggable={false}
+              />
+              
+              {/* 尺寸指示器 */}
+              <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                {getPixelSize().width}px × {getPixelSize().height}px (30mm×20mm)
+              </div>
+            </div>
           )}
           
           {/* 导航箭头 */}
@@ -475,8 +517,8 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
           
           {/* 缩放提示 */}
           {isZoomed && (
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-black/50 text-white text-sm rounded-full backdrop-blur-sm">
-              双击图片或按 Ctrl+0 重置缩放
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 px-4 py-2 bg-black/50 text-white text-sm rounded-full backdrop-blur-sm">
+              双击图片或按 Ctrl+0 重置到30mm×20mm
             </div>
           )}
         </div>
@@ -544,56 +586,26 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
           {showThumbnails && images.length > 1 && (
             <div className="flex justify-center space-x-2 overflow-x-auto py-2">
               {images.map((image, index) => (
-                <div
+                <button
                   key={image.id}
-                  className="flex-shrink-0 relative"
-                  style={{
-                    width: thumbnailSize.width,
-                    height: thumbnailSize.height,
-                    minWidth: thumbnailSize.width,
-                    minHeight: thumbnailSize.height
-                  }}
+                  onClick={() => goToImage(index)}
+                  className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
+                    index === currentIndex 
+                      ? 'border-white scale-105' 
+                      : 'border-transparent opacity-60 hover:opacity-100'
+                  }`}
+                  title={`查看图片 ${index + 1}`}
                 >
-                  <button
-                    onClick={() => goToImage(index)}
-                    className={`w-full h-full rounded-lg overflow-hidden border-2 transition-all hover:opacity-100 ${
-                      index === currentIndex 
-                        ? 'border-white scale-105' 
-                        : 'border-transparent opacity-60'
-                    }`}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      padding: '2px'
-                    }}
-                    title={`查看图片 ${index + 1}`}
-                  >
-                    <img
-                      src={image.thumbnailUrl || image.url}
-                      alt={`缩略图 ${index + 1}`}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                    />
-                  </button>
-                  
-                  {/* 当前图片指示器 */}
-                  {index === currentIndex && (
-                    <div className="absolute inset-0 border-2 border-blue-400 rounded-lg pointer-events-none" />
-                  )}
-                  
-                  {/* 图片序号 */}
-                  <div className="absolute bottom-0 right-0 bg-black/70 text-white text-xs px-1 rounded-tl">
-                    {index + 1}
-                  </div>
-                </div>
+                  <img
+                    src={image.thumbnailUrl || image.url}
+                    alt={`缩略图 ${index + 1}`}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                </button>
               ))}
             </div>
           )}
-          
-          {/* 尺寸提示 */}
-          <div className="text-center text-gray-400 text-xs mt-2">
-            缩略图尺寸: {thumbnailSize.width} × {thumbnailSize.height} (约30mm × 20mm)
-          </div>
         </div>
       )}
     </div>
