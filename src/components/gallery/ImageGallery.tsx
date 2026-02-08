@@ -31,10 +31,6 @@ interface ImageGalleryProps {
   maxHeight?: string;
   maxWidth?: string;
   defaultZoom?: number;
-  displaySize?: {
-    width: number;  // 显示宽度（像素）
-    height: number; // 显示高度（像素）
-  };
   onLike?: (imageId: string) => void;
   onShare?: (imageId: string) => void;
   onDownload?: (imageId: string) => void;
@@ -51,7 +47,6 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   maxHeight = '80vh',
   maxWidth = '90vw',
   defaultZoom = 0.8,
-  displaySize = { width: 113, height: 76 }, // 30mm×20mm ≈ 113px×76px
   onLike,
   onShare,
   onDownload
@@ -62,7 +57,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [imageLoadStatus, setImageLoadStatus] = useState<Record<string, boolean>>({});
-  const [zoomLevel, setZoomLevel] = useState(1);
+  const [zoomLevel, setZoomLevel] = useState(defaultZoom);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 });
@@ -77,32 +72,32 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
 
   // 重置图片位置和缩放
   const resetImageTransform = useCallback(() => {
-    setZoomLevel(1);
+    setZoomLevel(defaultZoom);
     setImagePosition({ x: 0, y: 0 });
     setIsZoomed(false);
-  }, []);
+  }, [defaultZoom]);
 
   // 处理鼠标滚轮缩放
   const handleWheel = useCallback((e: WheelEvent) => {
-    if (!galleryRef.current) return;
+    if (!galleryRef.current || !isFullscreen) return;
     
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
       const delta = e.deltaY > 0 ? -0.05 : 0.05;
       setZoomLevel(prev => {
         const newZoom = prev + delta;
-        const clampedZoom = Math.max(0.1, Math.min(5, newZoom));
-        if (clampedZoom !== 1) {
+        const clampedZoom = Math.max(0.1, Math.min(3, newZoom));
+        if (clampedZoom !== defaultZoom) {
           setIsZoomed(true);
         }
         return clampedZoom;
       });
     }
-  }, []);
+  }, [isFullscreen, defaultZoom]);
 
   // 处理鼠标拖动
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (zoomLevel <= 1) return;
+    if (zoomLevel <= defaultZoom) return;
     
     e.preventDefault();
     setIsDragging(true);
@@ -110,10 +105,10 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
       x: e.clientX - imagePosition.x,
       y: e.clientY - imagePosition.y
     });
-  }, [zoomLevel, imagePosition]);
+  }, [zoomLevel, defaultZoom, imagePosition]);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isDragging || zoomLevel <= 1) return;
+    if (!isDragging || zoomLevel <= defaultZoom) return;
     
     e.preventDefault();
     const newX = e.clientX - dragStart.x;
@@ -134,7 +129,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
         y: Math.max(-maxY, Math.min(maxY, newY))
       });
     }
-  }, [isDragging, dragStart, zoomLevel]);
+  }, [isDragging, dragStart, zoomLevel, defaultZoom]);
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
@@ -142,13 +137,13 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
 
   // 双击缩放功能
   const handleImageDoubleClick = useCallback(() => {
-    if (Math.abs(zoomLevel - 1) < 0.01) {
+    if (Math.abs(zoomLevel - defaultZoom) < 0.01) {
       setZoomLevel(2);
       setIsZoomed(true);
     } else {
       resetImageTransform();
     }
-  }, [zoomLevel, resetImageTransform]);
+  }, [zoomLevel, defaultZoom, resetImageTransform]);
 
   // 处理键盘导航
   useEffect(() => {
@@ -250,8 +245,8 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   // 缩放控制
   const handleZoomIn = () => {
     setZoomLevel((prev) => {
-      const newZoom = Math.min(prev + 0.1, 5);
-      if (newZoom !== 1) {
+      const newZoom = Math.min(prev + 0.1, 3);
+      if (Math.abs(newZoom - defaultZoom) > 0.01) {
         setIsZoomed(true);
       }
       return newZoom;
@@ -261,7 +256,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   const handleZoomOut = () => {
     setZoomLevel((prev) => {
       const newZoom = Math.max(prev - 0.1, 0.1);
-      if (newZoom === 1) {
+      if (Math.abs(newZoom - defaultZoom) < 0.01) {
         setIsZoomed(false);
         setImagePosition({ x: 0, y: 0 });
       }
@@ -289,7 +284,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
     }
   };
 
-  // 获取图片容器样式
+  // 获取图片容器样式 - 这是关键修改点
   const getImageContainerStyle = () => {
     if (aspectRatio === 'contain') {
       return {
@@ -315,14 +310,18 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
     };
   };
 
-  // 获取图片样式
+  // 获取图片样式 - 这是关键修改点
   const getImageStyle = () => {
     const baseStyle = {
       transform: `scale(${zoomLevel}) translate(${imagePosition.x}px, ${imagePosition.y}px)`,
-      cursor: zoomLevel > 1 ? 'grab' : 'default',
-      width: `${displaySize.width}px`,
-      height: `${displaySize.height}px`,
-      objectFit: 'contain' as const,
+      cursor: zoomLevel > defaultZoom ? 'grab' : 'default',
+      // 固定图片显示尺寸为30mm×20mm（约113px×76px）
+      width: '113px', // 30mm ≈ 113px (在96dpi屏幕上)
+      height: '76px', // 20mm ≈ 76px
+      maxWidth: '113px',
+      maxHeight: '76px',
+      minWidth: '113px',
+      minHeight: '76px',
     };
     
     if (isDragging) {
@@ -332,7 +331,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
     return baseStyle;
   };
 
-  // 获取实际显示百分比
+  // 获取实际显示百分比（相对于原始尺寸）
   const getDisplayPercentage = () => {
     return Math.round(zoomLevel * 100);
   };
@@ -392,7 +391,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
                 onClick={handleZoomIn}
                 className="p-2 text-white hover:bg-white/20 rounded-full transition-colors disabled:opacity-50"
                 title="放大 (Ctrl++)"
-                disabled={zoomLevel >= 5}
+                disabled={zoomLevel >= 3}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -421,47 +420,45 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
         </div>
       </div>
 
-      {/* 主图片展示区 */}
-      <div className="flex items-center justify-center h-[calc(100vh-200px)] p-4 md:p-8">
+      {/* 主图片展示区 - 这是关键修改点 */}
+      <div className="flex items-center justify-center min-h-[400px] p-4 md:p-8">
         <div 
           ref={imageContainerRef}
-          className="relative flex items-center justify-center transition-all duration-200 overflow-hidden"
-          style={getImageContainerStyle()}
+          className="relative flex items-center justify-center transition-all duration-200"
+          style={{
+            width: '113px', // 固定容器宽度
+            height: '76px', // 固定容器高度
+            minWidth: '113px',
+            minHeight: '76px',
+            maxWidth: '113px',
+            maxHeight: '76px',
+          }}
         >
           {isLoading && (
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin" />
+              <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             </div>
           )}
           
           {error ? (
-            <div className="flex flex-col items-center justify-center text-white p-8">
-              <AlertCircle className="w-16 h-16 mb-4 text-red-400" />
-              <p className="text-lg mb-2">图片加载失败</p>
-              <p className="text-gray-400 text-sm">{error}</p>
+            <div className="flex flex-col items-center justify-center text-white p-4">
+              <AlertCircle className="w-8 h-8 mb-2 text-red-400" />
+              <p className="text-sm mb-1">图片加载失败</p>
+              <p className="text-gray-400 text-xs">{error}</p>
             </div>
           ) : (
-            <div className="flex flex-col items-center">
-              <div className="relative">
-                <img
-                  ref={imageRef}
-                  src={currentImage.url}
-                  alt={currentImage.alt || `图片 ${currentIndex + 1}`}
-                  className="rounded-lg shadow-2xl select-none bg-gray-900"
-                  onLoad={() => handleImageLoad(currentImage.id)}
-                  onError={() => handleImageError(currentImage.id)}
-                  onDoubleClick={handleImageDoubleClick}
-                  onMouseDown={handleMouseDown}
-                  style={getImageStyle()}
-                  draggable={false}
-                />
-              </div>
-              
-              {/* 尺寸指示器 */}
-              <div className="mt-4 bg-black/70 text-white text-xs px-2 py-1 rounded">
-                显示尺寸: {displaySize.width}px × {displaySize.height}px (约30mm×20mm)
-              </div>
-            </div>
+            <img
+              ref={imageRef}
+              src={currentImage.url}
+              alt={currentImage.alt || `图片 ${currentIndex + 1}`}
+              className="rounded-lg shadow-lg select-none"
+              onLoad={() => handleImageLoad(currentImage.id)}
+              onError={() => handleImageError(currentImage.id)}
+              onDoubleClick={handleImageDoubleClick}
+              onMouseDown={handleMouseDown}
+              style={getImageStyle()}
+              draggable={false}
+            />
           )}
           
           {/* 导航箭头 */}
@@ -469,26 +466,31 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
             <>
               <button
                 onClick={goToPrevious}
-                className="absolute left-4 top-1/2 -translate-y-1/2 p-3 text-white hover:bg-white/20 rounded-full transition-colors backdrop-blur-sm z-10"
+                className="absolute -left-12 top-1/2 -translate-y-1/2 p-2 text-white hover:bg-white/20 rounded-full transition-colors backdrop-blur-sm z-10"
                 title="上一张 (左箭头)"
               >
-                <ChevronLeft className="w-6 h-6" />
+                <ChevronLeft className="w-5 h-5" />
               </button>
               
               <button
                 onClick={goToNext}
-                className="absolute right-4 top-1/2 -translate-y-1/2 p-3 text-white hover:bg-white/20 rounded-full transition-colors backdrop-blur-sm z-10"
+                className="absolute -right-12 top-1/2 -translate-y-1/2 p-2 text-white hover:bg-white/20 rounded-full transition-colors backdrop-blur-sm z-10"
                 title="下一张 (右箭头)"
               >
-                <ChevronRight className="w-6 h-6" />
+                <ChevronRight className="w-5 h-5" />
               </button>
             </>
           )}
           
+          {/* 尺寸提示 */}
+          <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2 bg-black/70 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+            30mm × 20mm (113px × 76px)
+          </div>
+          
           {/* 缩放提示 */}
           {isZoomed && (
-            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 px-4 py-2 bg-black/50 text-white text-sm rounded-full backdrop-blur-sm">
-              双击图片或按 Ctrl+0 重置缩放
+            <div className="absolute -top-10 left-1/2 -translate-x-1/2 px-3 py-1 bg-black/50 text-white text-xs rounded-full backdrop-blur-sm whitespace-nowrap">
+              双击重置缩放
             </div>
           )}
         </div>
@@ -505,48 +507,48 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
                   <img
                     src={currentImage.uploader.avatar}
                     alt={currentImage.uploader.name}
-                    className="w-10 h-10 rounded-full border-2 border-white/30"
+                    className="w-8 h-8 rounded-full border-2 border-white/30"
                   />
                 )}
                 <div>
-                  <p className="text-white font-medium">
+                  <p className="text-white font-medium text-sm">
                     {currentImage.uploader?.name || '未知用户'}
                   </p>
                   {currentImage.createdAt && (
-                    <p className="text-gray-400 text-sm">
+                    <p className="text-gray-400 text-xs">
                       {new Date(currentImage.createdAt).toLocaleDateString()}
                     </p>
                   )}
                 </div>
               </div>
               
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-3">
                 <button
                   onClick={() => onLike?.(currentImage.id)}
-                  className={`flex items-center space-x-2 p-2 rounded-lg transition-colors ${
+                  className={`flex items-center space-x-1 p-1.5 rounded-lg transition-colors ${
                     currentImage.isLiked 
                       ? 'bg-red-500/20 text-red-400' 
                       : 'text-white hover:bg-white/10'
                   }`}
                 >
-                  <Heart className={`w-5 h-5 ${currentImage.isLiked ? 'fill-current' : ''}`} />
-                  <span>{currentImage.likes || 0}</span>
+                  <Heart className={`w-4 h-4 ${currentImage.isLiked ? 'fill-current' : ''}`} />
+                  <span className="text-xs">{currentImage.likes || 0}</span>
                 </button>
                 
                 <button
                   onClick={() => onShare?.(currentImage.id)}
-                  className="p-2 text-white hover:bg-white/10 rounded-lg transition-colors"
+                  className="p-1.5 text-white hover:bg-white/10 rounded-lg transition-colors"
                   title="分享"
                 >
-                  <Share2 className="w-5 h-5" />
+                  <Share2 className="w-4 h-4" />
                 </button>
                 
                 <button
                   onClick={() => onDownload?.(currentImage.id)}
-                  className="p-2 text-white hover:bg-white/10 rounded-lg transition-colors"
+                  className="p-1.5 text-white hover:bg-white/10 rounded-lg transition-colors"
                   title="下载"
                 >
-                  <Download className="w-5 h-5" />
+                  <Download className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -559,7 +561,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
                 <button
                   key={image.id}
                   onClick={() => goToImage(index)}
-                  className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
+                  className={`flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border-2 transition-all ${
                     index === currentIndex 
                       ? 'border-white scale-105' 
                       : 'border-transparent opacity-60 hover:opacity-100'
