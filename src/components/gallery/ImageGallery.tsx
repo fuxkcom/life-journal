@@ -27,6 +27,11 @@ interface ImageGalleryProps {
   showThumbnails?: boolean;
   showControls?: boolean;
   showInfo?: boolean;
+  // 保持向后兼容性，但内部不再使用这些属性
+  aspectRatio?: 'square' | 'wide' | 'auto' | 'contain';
+  maxHeight?: string;
+  maxWidth?: string;
+  defaultZoom?: number;
   onLike?: (imageId: string) => void;
   onShare?: (imageId: string) => void;
   onDownload?: (imageId: string) => void;
@@ -39,6 +44,11 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   showThumbnails = true,
   showControls = true,
   showInfo = true,
+  // 这些参数为了兼容性保留，但不再使用
+  aspectRatio,
+  maxHeight,
+  maxWidth,
+  defaultZoom,
   onLike,
   onShare,
   onDownload
@@ -286,7 +296,6 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
     const baseStyle = {
       transform: `scale(${zoomLevel}) translate(${imagePosition.x}px, ${imagePosition.y}px)`,
       cursor: zoomLevel > 1 ? 'grab' : 'default',
-      // 关键：这里不使用百分比或auto，使用固定像素值
       width: `${displayWidth}px`,
       height: `${displayHeight}px`,
       maxWidth: `${displayWidth}px`,
@@ -319,7 +328,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   return (
     <div 
       ref={galleryRef}
-      className="fixed inset-0 bg-black/95 backdrop-blur-sm flex flex-col items-center justify-center z-50"
+      className="fixed inset-0 bg-black/95 backdrop-blur-sm flex flex-col items-center justify-center z-50 p-4"
       onClick={handleBackdropClick}
     >
       {/* 顶部控制栏 */}
@@ -390,11 +399,11 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
         </div>
       </div>
 
-      {/* 主图片展示区 - 关键修改：使用固定容器 */}
-      <div className="flex-1 flex flex-col items-center justify-center w-full p-4 relative">
+      {/* 主图片展示区 */}
+      <div className="flex-1 flex flex-col items-center justify-center w-full relative">
         <div 
           ref={imageContainerRef}
-          className="relative"
+          className="relative flex items-center justify-center"
           style={{
             width: `${displayWidth}px`,
             height: `${displayHeight}px`,
@@ -415,7 +424,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
               <p className="text-gray-400 text-xs">{error}</p>
             </div>
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gray-900 rounded-lg overflow-hidden">
+            <div className="w-full h-full flex items-center justify-center bg-gray-900 rounded-lg overflow-hidden border border-gray-700">
               <img
                 ref={imageRef}
                 src={currentImage.url}
@@ -436,7 +445,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
             <>
               <button
                 onClick={goToPrevious}
-                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-12 p-2 text-white hover:bg-white/20 rounded-full transition-colors backdrop-blur-sm z-10"
+                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-14 p-2 text-white hover:bg-white/20 rounded-full transition-colors backdrop-blur-sm z-10 bg-black/30"
                 title="上一张 (左箭头)"
               >
                 <ChevronLeft className="w-5 h-5" />
@@ -444,7 +453,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
               
               <button
                 onClick={goToNext}
-                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-12 p-2 text-white hover:bg-white/20 rounded-full transition-colors backdrop-blur-sm z-10"
+                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-14 p-2 text-white hover:bg-white/20 rounded-full transition-colors backdrop-blur-sm z-10 bg-black/30"
                 title="下一张 (右箭头)"
               >
                 <ChevronRight className="w-5 h-5" />
@@ -468,7 +477,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
 
       {/* 底部信息栏 */}
       {(showInfo || showThumbnails) && (
-        <div className="absolute bottom-0 left-0 right-0 z-50 p-4 bg-gradient-to-t from-black/60 to-transparent">
+        <div className="w-full max-w-4xl mt-4 p-4 bg-gradient-to-t from-black/60 to-transparent">
           {/* 图片信息 */}
           {showInfo && currentImage && (
             <div className="flex items-center justify-between mb-4">
