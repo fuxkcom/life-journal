@@ -51,7 +51,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   maxHeight = '80vh',
   maxWidth = '90vw',
   defaultZoom = 0.8,
-  thumbnailSize = { width: '30mm', height: '20mm' }, // 默认缩略图尺寸
+  thumbnailSize = { width: '30mm', height: '20mm' },
   onLike,
   onShare,
   onDownload
@@ -67,10 +67,6 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 });
   const [isZoomed, setIsZoomed] = useState(false);
-  const [thumbnailDimensions, setThumbnailDimensions] = useState({
-    width: '30mm',
-    height: '20mm'
-  });
   
   const galleryRef = useRef<HTMLDivElement>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
@@ -78,11 +74,6 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   
   // 当前图片
   const currentImage = images[currentIndex];
-
-  // 初始化缩略图尺寸
-  useEffect(() => {
-    setThumbnailDimensions(thumbnailSize);
-  }, [thumbnailSize]);
 
   // 重置图片位置和缩放
   const resetImageTransform = useCallback(() => {
@@ -553,42 +544,87 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
           {showThumbnails && images.length > 1 && (
             <div className="flex justify-center space-x-2 overflow-x-auto py-2">
               {images.map((image, index) => (
-                <button
+                <div
                   key={image.id}
-                  onClick={() => goToImage(index)}
-                  className={`flex-shrink-0 rounded-lg overflow-hidden border-2 transition-all hover:opacity-100 ${
-                    index === currentIndex 
-                      ? 'border-white scale-105' 
-                      : 'border-transparent opacity-60'
-                  }`}
+                  className="flex-shrink-0 relative"
                   style={{
-                    width: thumbnailDimensions.width,
-                    height: thumbnailDimensions.height,
-                    minWidth: thumbnailDimensions.width,
-                    minHeight: thumbnailDimensions.height
+                    width: thumbnailSize.width,
+                    height: thumbnailSize.height,
+                    minWidth: thumbnailSize.width,
+                    minHeight: thumbnailSize.height
                   }}
-                  title={`查看图片 ${index + 1}`}
                 >
-                  <img
-                    src={image.thumbnailUrl || image.url}
-                    alt={`缩略图 ${index + 1}`}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
+                  <button
+                    onClick={() => goToImage(index)}
+                    className={`w-full h-full rounded-lg overflow-hidden border-2 transition-all hover:opacity-100 ${
+                      index === currentIndex 
+                        ? 'border-white scale-105' 
+                        : 'border-transparent opacity-60'
+                    }`}
                     style={{
                       width: '100%',
-                      height: '100%'
+                      height: '100%',
+                      padding: 0
                     }}
-                  />
+                    title={`查看图片 ${index + 1}`}
+                  >
+                    <img
+                      src={image.thumbnailUrl || image.url}
+                      alt={`缩略图 ${index + 1}`}
+                      className="w-full h-full object-cover"
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover'
+                      }}
+                      loading="lazy"
+                    />
+                  </button>
+                  
                   {/* 当前图片指示器 */}
                   {index === currentIndex && (
-                    <div className="absolute inset-0 border-2 border-blue-400 pointer-events-none" />
+                    <div className="absolute inset-0 border-2 border-blue-400 rounded-lg pointer-events-none" />
                   )}
-                </button>
+                  
+                  {/* 图片序号 */}
+                  <div className="absolute bottom-0 right-0 bg-black/70 text-white text-xs px-1 rounded-tl">
+                    {index + 1}
+                  </div>
+                </div>
               ))}
             </div>
           )}
+          
+          {/* 尺寸提示 */}
+          <div className="text-center text-gray-400 text-xs mt-2">
+            缩略图尺寸: {thumbnailSize.width} × {thumbnailSize.height}
+          </div>
         </div>
       )}
+      
+      {/* 添加CSS样式确保mm单位正确应用 */}
+      <style jsx global>{`
+        @media screen {
+          /* 确保mm单位在屏幕上正确显示 */
+          img {
+            max-width: 100%;
+            max-height: 100%;
+          }
+          
+          /* 缩略图容器的样式 */
+          .thumbnail-container {
+            box-sizing: border-box;
+          }
+          
+          /* 针对缩略图按钮的特殊样式 */
+          button.thumbnail-button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+          }
+        }
+      `}</style>
     </div>
   );
 };
