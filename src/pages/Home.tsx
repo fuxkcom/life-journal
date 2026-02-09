@@ -22,6 +22,7 @@ import Weather from '../components/Weather'
 
 
 const initialLoadRef = useRef(false);
+const CACHE_KEY = 'home_data_cache';
 // 每日格言数据
 const DAILY_QUOTES = [
   { text: "生活不是等待风暴过去，而是学会在雨中跳舞。", author: "维维安·格林" },
@@ -552,6 +553,73 @@ export default function Home() {
     }
   };
 
+ // 在 useEffect 中
+useEffect(() => {
+  if (user) {
+    // 1. 尝试从 sessionStorage 恢复数据
+    const cachedData = sessionStorage.getItem(CACHE_KEY);
+    if (cachedData) {
+      try {
+        const parsed = JSON.parse(cachedData);
+        const now = Date.now();
+        const CACHE_DURATION = 5 * 60 * 1000; // 5分钟
+        
+        // 检查缓存是否过期
+        if (parsed.timestamp && (now - parsed.timestamp) < CACHE_DURATION) {
+          console.log('从 sessionStorage 恢复缓存数据');
+          setPosts(parsed.posts || []);
+          setStats(parsed.stats || {});
+          setMoods(parsed.moods || []);
+          setActivities(parsed.activities || []);
+          setFriendMoods(parsed.friendMoods || []);
+          setFunFact(parsed.funFact || '');
+          setJoke(parsed.joke || '');
+          setWeather(parsed.weather || null);
+          setLoading(false);
+          
+          // 后台静默更新
+          setTimeout(() => {
+            loadAllData();
+            fetchFunFact();
+            fetchJoke();
+            fetchWeather();
+          }, 1000);
+          return;
+        }
+      } catch (error) {
+        console.error('解析缓存失败:', error);
+      }
+    }
+    
+    // 2. 没有缓存或缓存过期，正常加载
+    console.log('无缓存或缓存过期，重新加载数据');
+    loadAllData();
+    fetchFunFact();
+    fetchJoke();
+    fetchWeather();
+    
+    // 定时器...
+    
+    return () => {
+      // 组件卸载前保存数据到 sessionStorage
+      if (posts.length > 0) {
+        const dataToCache = {
+          posts,
+          stats,
+          moods,
+          activities,
+          friendMoods,
+          funFact,
+          joke,
+          weather,
+          timestamp: Date.now()
+        };
+        sessionStorage.setItem(CACHE_KEY, JSON.stringify(dataToCache));
+      }
+    };
+  }
+}, [user]);
+  
   // 在 Home.tsx 的 useEffect 中添加
 useEffect(() => {
   let isSubscribed = true;
