@@ -491,7 +491,7 @@ export default function Home() {
               
               // 后台静默更新
               setTimeout(() => {
-                loadAllData(true) // true 表示静默模式
+                loadAllData() // true 表示静默模式
               }, 2000)
             }
           }
