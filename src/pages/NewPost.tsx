@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { ArrowLeft, Image, X, Send, Loader2, MapPin, MapPinOff, AlertCircle, Globe, Building2, Compass, Navigation } from 'lucide-react'
+import { ArrowLeft, Image, X, Send, Loader2, MapPin, MapPinOff, AlertCircle, Globe, Building2 } from 'lucide-react'
 
 export default function NewPost() {
   const { user } = useAuth()
@@ -18,131 +18,36 @@ export default function NewPost() {
   const [locationError, setLocationError] = useState<string | null>(null)
   const [manualLocation, setManualLocation] = useState('')
   const [showManualInput, setShowManualInput] = useState(false)
-  const [permissionStatus, setPermissionStatus] = useState<PermissionState | null>(null)
 
-  // 检查地理位置权限状态
-  useEffect(() => {
-    checkGeolocationPermission()
-  }, [])
-
-  // 监听位置权限变化
-  useEffect(() => {
-    if ('permissions' in navigator) {
-      navigator.permissions.query({ name: 'geolocation' as PermissionName })
-        .then(permissionStatus => {
-          permissionStatus.onchange = () => {
-            setPermissionStatus(permissionStatus.state)
-          }
-        })
-    }
-  }, [])
-
-  // 检查地理位置权限
-  const checkGeolocationPermission = async () => {
-    if ('permissions' in navigator) {
-      try {
-        const permissionStatus = await navigator.permissions.query({ 
-          name: 'geolocation' as PermissionName 
-        })
-        setPermissionStatus(permissionStatus.state)
-        return permissionStatus.state
-      } catch (error) {
-        console.warn('无法检查权限状态:', error)
-        return null
-      }
-    }
-    return null
-  }
-
-  // 请求地理位置权限
-  const requestGeolocationPermission = async (): Promise<boolean> => {
-    return new Promise((resolve) => {
-      if (!navigator.geolocation) {
-        resolve(false)
-        return
-      }
-
-      navigator.geolocation.getCurrentPosition(
-        () => {
-          // 成功获取位置，说明有权限
-          setPermissionStatus('granted')
-          resolve(true)
-        },
-        (error) => {
-          if (error.code === error.PERMISSION_DENIED) {
-            setPermissionStatus('denied')
-          }
-          resolve(false)
-        },
-        { maximumAge: 0, timeout: 100 }
-      )
-    })
-  }
-
+  // 只在组件加载时尝试获取位置
   useEffect(() => {
     if (showLocation) {
       getLocation()
     }
-  }, [showLocation])
+  }, [])
 
   const getLocation = async () => {
+    // 清除之前的错误
+    setLocationError(null)
+    
     if (!navigator.geolocation) {
       setLocationError('您的浏览器不支持地理位置功能')
-      return
-    }
-
-    // 检查权限状态
-    const permission = await checkGeolocationPermission()
-    
-    // 如果权限被拒绝，提示用户手动输入
-    if (permission === 'denied') {
-      setLocationError('位置权限被拒绝，请在浏览器设置中启用位置权限，或手动输入位置')
       setShowManualInput(true)
       return
     }
 
     setLoadingLocation(true)
-    setLocationError(null)
 
     try {
+      // 直接使用浏览器原生的位置获取API，它会自动弹出权限询问
       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        // 先尝试快速获取（使用缓存，不要求高精度）
         navigator.geolocation.getCurrentPosition(
           resolve,
-          (error) => {
-            // 如果快速获取失败，尝试高精度获取
-            console.log('快速获取失败，尝试高精度获取:', error.message)
-            navigator.geolocation.getCurrentPosition(
-              resolve,
-              (highAccuracyError) => {
-                console.log('高精度获取失败:', highAccuracyError.message)
-                let errorMessage = '无法获取您的位置'
-                
-                switch (highAccuracyError.code) {
-                  case highAccuracyError.PERMISSION_DENIED:
-                    errorMessage = '位置权限被拒绝，请在浏览器设置中启用位置权限'
-                    setPermissionStatus('denied')
-                    break
-                  case highAccuracyError.POSITION_UNAVAILABLE:
-                    errorMessage = '位置信息不可用，请检查设备定位功能'
-                    break
-                  case highAccuracyError.TIMEOUT:
-                    errorMessage = '获取位置超时，请检查网络连接'
-                    break
-                }
-                reject(new Error(errorMessage))
-              },
-              {
-                enableHighAccuracy: true,
-                timeout: 10000,
-                maximumAge: 0
-              }
-            )
-          },
+          reject,
           {
-            enableHighAccuracy: false,
-            timeout: 5000,
-            maximumAge: 60000 // 使用1分钟内的缓存位置
+            enableHighAccuracy: true, // 请求高精度位置
+            timeout: 10000, // 10秒超时
+            maximumAge: 0 // 不使用缓存位置
           }
         )
       })
@@ -160,7 +65,22 @@ export default function NewPost() {
       
     } catch (error: any) {
       console.error('获取位置失败:', error)
-      const errorMessage = error.message || '获取位置失败'
+      
+      // 根据错误类型设置友好的错误消息
+      let errorMessage = '获取位置失败'
+      
+      switch (error.code) {
+        case error.PERMISSION_DENIED:
+          errorMessage = '位置权限被拒绝'
+          break
+        case error.POSITION_UNAVAILABLE:
+          errorMessage = '位置信息不可用'
+          break
+        case error.TIMEOUT:
+          errorMessage = '获取位置超时'
+          break
+      }
+      
       setLocationError(errorMessage)
       
       // 如果获取失败，自动显示手动输入选项
@@ -173,111 +93,69 @@ export default function NewPost() {
   }
 
   const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
-    try {
-      // 尝试使用浏览器内置的地理编码API（如果可用）
-      if ('geocoder' in window) {
-        try {
-          const geocoder = new (window as any).Geocoder()
-          const result = await new Promise<any>((resolve, reject) => {
-            geocoder.geocode({ location: { lat, lng } }, (results: any[], status: string) => {
-              if (status === 'OK' && results[0]) {
-                resolve(results[0])
-              } else {
-                reject(new Error('地理编码失败'))
-              }
-            })
-          })
-          
-          // 从结果中提取城市信息
-          for (const component of result.address_components) {
-            if (component.types.includes('locality') || component.types.includes('administrative_area_level_1')) {
-              return component.long_name
-            }
-          }
-        } catch (geocodeError) {
-          console.warn('浏览器地理编码失败，使用备用方案:', geocodeError)
-        }
+    // 使用本地城市坐标匹配
+    const cities = [
+      { name: '深圳', lat: 22.54, lng: 114.06, range: 0.3 },
+      { name: '广州', lat: 23.13, lng: 113.26, range: 0.3 },
+      { name: '北京', lat: 39.90, lng: 116.41, range: 0.4 },
+      { name: '上海', lat: 31.23, lng: 121.47, range: 0.4 },
+      { name: '杭州', lat: 30.27, lng: 120.15, range: 0.3 },
+      { name: '成都', lat: 30.57, lng: 104.07, range: 0.4 },
+      { name: '武汉', lat: 30.59, lng: 114.31, range: 0.3 },
+      { name: '南京', lat: 32.06, lng: 118.80, range: 0.3 },
+      { name: '西安', lat: 34.27, lng: 108.95, range: 0.4 },
+      { name: '重庆', lat: 29.56, lng: 106.55, range: 0.5 },
+      { name: '天津', lat: 39.13, lng: 117.20, range: 0.3 },
+      { name: '苏州', lat: 31.30, lng: 120.62, range: 0.2 },
+      { name: '东莞', lat: 23.02, lng: 113.75, range: 0.2 },
+      { name: '佛山', lat: 23.02, lng: 113.12, range: 0.2 },
+      { name: '珠海', lat: 22.27, lng: 113.58, range: 0.2 },
+      { name: '厦门', lat: 24.48, lng: 118.09, range: 0.2 },
+      { name: '长沙', lat: 28.23, lng: 112.94, range: 0.3 },
+      { name: '青岛', lat: 36.07, lng: 120.38, range: 0.3 },
+      { name: '郑州', lat: 34.75, lng: 113.63, range: 0.3 },
+      { name: '沈阳', lat: 41.80, lng: 123.43, range: 0.3 },
+      { name: '大连', lat: 38.91, lng: 121.60, range: 0.3 },
+      { name: '济南', lat: 36.65, lng: 117.00, range: 0.3 },
+      { name: '合肥', lat: 31.82, lng: 117.23, range: 0.3 },
+      { name: '福州', lat: 26.07, lng: 119.30, range: 0.3 },
+      { name: '昆明', lat: 24.88, lng: 102.83, range: 0.3 },
+      { name: '南宁', lat: 22.82, lng: 108.32, range: 0.3 },
+      { name: '贵阳', lat: 26.65, lng: 106.63, range: 0.3 },
+      { name: '哈尔滨', lat: 45.80, lng: 126.53, range: 0.4 },
+      { name: '长春', lat: 43.90, lng: 125.32, range: 0.3 },
+      { name: '石家庄', lat: 38.04, lng: 114.50, range: 0.3 },
+      { name: '无锡', lat: 31.57, lng: 120.30, range: 0.2 },
+      { name: '宁波', lat: 29.87, lng: 121.55, range: 0.2 },
+      { name: '温州', lat: 28.00, lng: 120.70, range: 0.2 },
+      { name: '南昌', lat: 28.68, lng: 115.86, range: 0.3 },
+      { name: '海口', lat: 20.04, lng: 110.32, range: 0.2 },
+      { name: '三亚', lat: 18.25, lng: 109.50, range: 0.2 },
+    ]
+    
+    // 查找最近的城市
+    let closestCity = '当前位置'
+    let minDistance = Infinity
+    
+    for (const city of cities) {
+      // 计算近似距离
+      const dLat = (lat - city.lat) * 111.32
+      const dLng = (lng - city.lng) * 111.32 * Math.cos(city.lat * Math.PI / 180)
+      const distance = Math.sqrt(dLat * dLat + dLng * dLng)
+      
+      if (distance < city.range && distance < minDistance) {
+        minDistance = distance
+        closestCity = city.name
       }
-
-      // 备用方案：使用本地城市数据库
-      const cities = [
-        { name: '深圳', lat: 22.54, lng: 114.06, range: 0.3 },
-        { name: '广州', lat: 23.13, lng: 113.26, range: 0.3 },
-        { name: '北京', lat: 39.90, lng: 116.41, range: 0.4 },
-        { name: '上海', lat: 31.23, lng: 121.47, range: 0.4 },
-        { name: '杭州', lat: 30.27, lng: 120.15, range: 0.3 },
-        { name: '成都', lat: 30.57, lng: 104.07, range: 0.4 },
-        { name: '武汉', lat: 30.59, lng: 114.31, range: 0.3 },
-        { name: '南京', lat: 32.06, lng: 118.80, range: 0.3 },
-        { name: '西安', lat: 34.27, lng: 108.95, range: 0.4 },
-        { name: '重庆', lat: 29.56, lng: 106.55, range: 0.5 },
-        { name: '天津', lat: 39.13, lng: 117.20, range: 0.3 },
-        { name: '苏州', lat: 31.30, lng: 120.62, range: 0.2 },
-        { name: '东莞', lat: 23.02, lng: 113.75, range: 0.2 },
-        { name: '佛山', lat: 23.02, lng: 113.12, range: 0.2 },
-        { name: '珠海', lat: 22.27, lng: 113.58, range: 0.2 },
-        { name: '厦门', lat: 24.48, lng: 118.09, range: 0.2 },
-        { name: '长沙', lat: 28.23, lng: 112.94, range: 0.3 },
-        { name: '青岛', lat: 36.07, lng: 120.38, range: 0.3 },
-        { name: '郑州', lat: 34.75, lng: 113.63, range: 0.3 },
-        { name: '沈阳', lat: 41.80, lng: 123.43, range: 0.3 },
-        { name: '大连', lat: 38.91, lng: 121.60, range: 0.3 },
-        { name: '济南', lat: 36.65, lng: 117.00, range: 0.3 },
-        { name: '合肥', lat: 31.82, lng: 117.23, range: 0.3 },
-        { name: '福州', lat: 26.07, lng: 119.30, range: 0.3 },
-        { name: '昆明', lat: 24.88, lng: 102.83, range: 0.3 },
-        { name: '南宁', lat: 22.82, lng: 108.32, range: 0.3 },
-        { name: '贵阳', lat: 26.65, lng: 106.63, range: 0.3 },
-        { name: '哈尔滨', lat: 45.80, lng: 126.53, range: 0.4 },
-        { name: '长春', lat: 43.90, lng: 125.32, range: 0.3 },
-        { name: '石家庄', lat: 38.04, lng: 114.50, range: 0.3 },
-        { name: '无锡', lat: 31.57, lng: 120.30, range: 0.2 },
-        { name: '宁波', lat: 29.87, lng: 121.55, range: 0.2 },
-        { name: '温州', lat: 28.00, lng: 120.70, range: 0.2 },
-        { name: '南昌', lat: 28.68, lng: 115.86, range: 0.3 },
-        { name: '海口', lat: 20.04, lng: 110.32, range: 0.2 },
-        { name: '三亚', lat: 18.25, lng: 109.50, range: 0.2 },
-      ]
-      
-      // 查找最近的城市
-      let closestCity = '当前位置'
-      let minDistance = Infinity
-      
-      for (const city of cities) {
-        // 计算近似距离（简化版）
-        const dLat = (lat - city.lat) * 111.32 // 1度纬度约111.32公里
-        const dLng = (lng - city.lng) * 111.32 * Math.cos(city.lat * Math.PI / 180)
-        const distance = Math.sqrt(dLat * dLat + dLng * dLng)
-        
-        if (distance < city.range && distance < minDistance) {
-          minDistance = distance
-          closestCity = city.name
-        }
-      }
-      
-      return closestCity
-      
-    } catch (error) {
-      console.error('反向地理编码失败:', error)
-      return '当前位置'
     }
+    
+    return closestCity
   }
 
-  // 处理打开位置设置
-  const handleOpenLocationSettings = () => {
-    // 尝试打开位置设置页面（移动端友好）
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
-    
-    if (isMobile) {
-      // 移动设备通常可以通过特定链接打开设置
-      alert('请在手机设置中打开位置权限：\n1. 打开手机设置\n2. 找到浏览器应用\n3. 打开位置权限')
-    } else {
-      // 桌面浏览器
-      alert('请在浏览器设置中启用位置权限：\n1. 点击浏览器地址栏左侧的锁图标或信息图标\n2. 找到"位置"设置\n3. 选择"允许"')
-    }
-    
-    // 提供手动输入的备选方案
-    setShowManualInput(true)
+  // 重新尝试获取位置
+  const retryGetLocation = () => {
+    setLocationError(null)
+    getLocation()
   }
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -471,66 +349,21 @@ export default function NewPost() {
                     <div className="flex items-center gap-2">
                       <MapPin className="w-5 h-5 text-green-600" />
                       <span className="text-green-700 font-medium">{location.name}</span>
-                      {location.name !== '当前位置' && (
-                        <span className="text-xs text-green-500 bg-green-100 px-2 py-0.5 rounded-full">
-                          自动获取
-                        </span>
-                      )}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          setShowManualInput(true)
-                          setManualLocation(location.name)
-                        }}
-                        className="text-sm text-gray-500 hover:text-gray-700"
-                      >
-                        修改
-                      </button>
-                      <button
-                        onClick={getLocation}
-                        className="p-1 text-gray-400 hover:text-gray-600"
-                        title="刷新位置"
-                      >
-                        <Navigation className="w-4 h-4" />
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => {
+                        setShowManualInput(true)
+                        setManualLocation(location.name)
+                      }}
+                      className="text-sm text-gray-500 hover:text-gray-700"
+                    >
+                      修改
+                    </button>
                   </div>
                 ) : null}
 
-                {/* 权限被拒绝的提示 */}
-                {permissionStatus === 'denied' && !location && (
-                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                    <div className="flex items-start gap-3">
-                      <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-amber-800 mb-2">
-                          位置权限被拒绝
-                        </p>
-                        <p className="text-sm text-amber-700 mb-3">
-                          请在浏览器设置中启用位置权限，或手动输入位置。
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            onClick={handleOpenLocationSettings}
-                            className="px-3 py-1.5 bg-amber-100 text-amber-700 rounded-lg text-sm hover:bg-amber-200"
-                          >
-                            打开位置设置
-                          </button>
-                          <button
-                            onClick={() => setShowManualInput(true)}
-                            className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200"
-                          >
-                            手动输入位置
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
                 {/* 错误提示 */}
-                {locationError && permissionStatus !== 'denied' && (
+                {locationError && (
                   <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
                     <div className="flex items-start gap-3">
                       <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
@@ -541,10 +374,9 @@ export default function NewPost() {
                         <p className="text-sm text-red-700 mb-3">{locationError}</p>
                         <div className="flex flex-wrap gap-2">
                           <button
-                            onClick={getLocation}
-                            className="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-sm hover:bg-red-200 flex items-center gap-2"
+                            onClick={retryGetLocation}
+                            className="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-sm hover:bg-red-200"
                           >
-                            <Compass className="w-3 h-3" />
                             重新获取位置
                           </button>
                           <button
@@ -561,67 +393,61 @@ export default function NewPost() {
 
                 {/* 手动输入位置 */}
                 {showManualInput && (
-                  <div className="space-y-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Building2 className="w-5 h-5 text-blue-600" />
-                      <span className="text-sm font-medium text-blue-800">手动输入位置</span>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="w-5 h-5 text-gray-400" />
+                      <input
+                        type="text"
+                        value={manualLocation}
+                        onChange={(e) => setManualLocation(e.target.value)}
+                        placeholder="输入地点名称，如：北京三里屯、上海外滩..."
+                        className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
+                      />
                     </div>
                     
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          value={manualLocation}
-                          onChange={(e) => setManualLocation(e.target.value)}
-                          placeholder="输入地点名称，如：北京三里屯、上海外滩..."
-                          className="flex-1 px-3 py-2 bg-white border border-blue-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
-                        />
+                    {/* 常用城市推荐 */}
+                    <div>
+                      <p className="text-sm text-gray-500 mb-2">常用城市：</p>
+                      <div className="flex flex-wrap gap-2">
+                        {popularCities.map(city => (
+                          <button
+                            key={city}
+                            onClick={() => setManualLocation(city)}
+                            className={`px-3 py-1 text-sm rounded-full transition-colors ${
+                              manualLocation === city 
+                                ? 'bg-indigo-600 text-white' 
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                          >
+                            {city}
+                          </button>
+                        ))}
                       </div>
-                      
-                      {/* 常用城市推荐 */}
-                      <div>
-                        <p className="text-xs text-blue-700 mb-2">常用城市：</p>
-                        <div className="flex flex-wrap gap-2">
-                          {popularCities.map(city => (
-                            <button
-                              key={city}
-                              onClick={() => setManualLocation(city)}
-                              className={`px-3 py-1 text-sm rounded-full transition-colors ${
-                                manualLocation === city 
-                                  ? 'bg-blue-600 text-white' 
-                                  : 'bg-white text-blue-700 hover:bg-blue-100 border border-blue-200'
-                              }`}
-                            >
-                              {city}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
+                    </div>
 
-                      <div className="flex gap-2 pt-2">
-                        <button
-                          onClick={() => {
-                            if (manualLocation.trim()) {
-                              setLocation({ lat: 0, lng: 0, name: manualLocation.trim() })
-                              setLocationError(null)
-                              setShowManualInput(false)
-                            }
-                          }}
-                          disabled={!manualLocation.trim()}
-                          className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium text-sm disabled:opacity-50"
-                        >
-                          使用此位置
-                        </button>
-                        <button
-                          onClick={() => {
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          if (manualLocation.trim()) {
+                            setLocation({ lat: 0, lng: 0, name: manualLocation.trim() })
+                            setLocationError(null)
                             setShowManualInput(false)
-                            setManualLocation('')
-                          }}
-                          className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg font-medium text-sm hover:bg-gray-50"
-                        >
-                          取消
-                        </button>
-                      </div>
+                          }
+                        }}
+                        disabled={!manualLocation.trim()}
+                        className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium text-sm disabled:opacity-50"
+                      >
+                        使用此位置
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowManualInput(false)
+                          setManualLocation('')
+                        }}
+                        className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium text-sm hover:bg-gray-200"
+                      >
+                        取消
+                      </button>
                     </div>
                   </div>
                 )}
@@ -632,7 +458,7 @@ export default function NewPost() {
                     onClick={getLocation}
                     className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gray-50 rounded-lg text-gray-600 hover:bg-gray-100 border border-gray-200"
                   >
-                    <Compass className="w-5 h-5" />
+                    <MapPin className="w-5 h-5" />
                     <span>获取当前位置</span>
                   </button>
                 )}
