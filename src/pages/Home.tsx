@@ -553,43 +553,29 @@ export default function Home() {
     }
   };
 
- // 在 useEffect 中
 useEffect(() => {
   if (user) {
-    // 1. 尝试从 sessionStorage 恢复数据
-    const cachedData = sessionStorage.getItem(CACHE_KEY);
-    if (cachedData) {
-      try {
-        const parsed = JSON.parse(cachedData);
-        const now = Date.now();
-        const CACHE_DURATION = 5 * 60 * 1000; // 5分钟
-        
-        // 检查缓存是否过期
-        if (parsed.timestamp && (now - parsed.timestamp) < CACHE_DURATION) {
-          console.log('从 sessionStorage 恢复缓存数据');
-          setPosts(parsed.posts || []);
-          setStats(parsed.stats || {});
-          setMoods(parsed.moods || []);
-          setActivities(parsed.activities || []);
-          setFriendMoods(parsed.friendMoods || []);
-          setFunFact(parsed.funFact || '');
-          setJoke(parsed.joke || '');
-          setWeather(parsed.weather || null);
-          setLoading(false);
-          
-          // 后台静默更新
-          setTimeout(() => {
-            loadAllData();
-            fetchFunFact();
-            fetchJoke();
-            fetchWeather();
-          }, 1000);
-          return;
-        }
-      } catch (error) {
-        console.error('解析缓存失败:', error);
-      }
-    }
+    console.log('🔄 加载数据（缓存已禁用）');
+    setLoading(true);
+    
+    // 清理可能的缓存
+    sessionStorage.removeItem(HOME_CACHE_KEY);
+    
+    // 加载所有数据
+    loadAllData();
+    fetchFunFact();
+    fetchJoke();
+    fetchWeather();
+    
+    // 定时器...
+    
+    return () => {
+      // 不保存到缓存
+      clearInterval(jokeInterval);
+      clearInterval(weatherInterval);
+    };
+  }
+}, [user]);
     
     // 2. 没有缓存或缓存过期，正常加载
     console.log('无缓存或缓存过期，重新加载数据');
