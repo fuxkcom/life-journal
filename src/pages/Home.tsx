@@ -550,6 +550,31 @@ export default function Home() {
     }
   };
 
+  // 在 Home.tsx 的 useEffect 中添加
+useEffect(() => {
+  let isSubscribed = true;
+  
+  const loadData = async () => {
+    if (user && isSubscribed) {
+      await loadAllData();
+    }
+  };
+  
+  loadData();
+  
+  // 监听路由变化，但不要重新加载数据
+  const handleRouteChange = () => {
+    // 不执行任何操作，保持现有状态
+  };
+  
+  window.addEventListener('popstate', handleRouteChange);
+  
+  return () => {
+    isSubscribed = false;
+    window.removeEventListener('popstate', handleRouteChange);
+  };
+}, [user]); // 只在用户状态变化时执行
+ 
   // 初始化加载所有数据
   useEffect(() => {
     if (user) {
