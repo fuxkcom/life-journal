@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { ArrowLeft, Image, X, Send, Loader2, MapPin, MapPinOff, AlertCircle, Globe, Building2 } from 'lucide-react'
+import { ArrowLeft, Image, X, Send, Loader2, MapPin, MapPinOff, AlertCircle, Globe, Building2, Navigation } from 'lucide-react'
 
 export default function NewPost() {
   const { user } = useAuth()
@@ -18,12 +18,11 @@ export default function NewPost() {
   const [locationError, setLocationError] = useState<string | null>(null)
   const [manualLocation, setManualLocation] = useState('')
   const [showManualInput, setShowManualInput] = useState(false)
+  const [hasRequestedLocation, setHasRequestedLocation] = useState(false)
 
   // 只在组件加载时尝试获取位置
   useEffect(() => {
-    if (showLocation) {
-      getLocation()
-    }
+    // 不自动获取位置，等待用户交互
   }, [])
 
   const getLocation = async () => {
@@ -37,16 +36,17 @@ export default function NewPost() {
     }
 
     setLoadingLocation(true)
+    setHasRequestedLocation(true)
 
     try {
-      // 直接使用浏览器原生的位置获取API，它会自动弹出权限询问
+      // 使用更简单的配置，确保能触发浏览器提示
       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(
           resolve,
           reject,
           {
-            enableHighAccuracy: true, // 请求高精度位置
-            timeout: 10000, // 10秒超时
+            enableHighAccuracy: false, // 使用false可能更容易触发
+            timeout: 15000, // 增加超时时间
             maximumAge: 0 // 不使用缓存位置
           }
         )
@@ -69,16 +69,14 @@ export default function NewPost() {
       // 根据错误类型设置友好的错误消息
       let errorMessage = '获取位置失败'
       
-      switch (error.code) {
-        case error.PERMISSION_DENIED:
-          errorMessage = '位置权限被拒绝'
-          break
-        case error.POSITION_UNAVAILABLE:
-          errorMessage = '位置信息不可用'
-          break
-        case error.TIMEOUT:
-          errorMessage = '获取位置超时'
-          break
+      if (error.code === error.PERMISSION_DENIED) {
+        errorMessage = '位置权限被拒绝'
+      } else if (error.code === error.POSITION_UNAVAILABLE) {
+        errorMessage = '位置信息不可用'
+      } else if (error.code === error.TIMEOUT) {
+        errorMessage = '获取位置超时，请重试'
+      } else if (error.message) {
+        errorMessage = error.message
       }
       
       setLocationError(errorMessage)
@@ -90,6 +88,11 @@ export default function NewPost() {
     } finally {
       setLoadingLocation(false)
     }
+  }
+
+  // 获取位置按钮点击处理
+  const handleGetLocationClick = () => {
+    getLocation()
   }
 
   const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
@@ -320,10 +323,7 @@ export default function NewPost() {
                     setShowManualInput(false)
                   } else {
                     setShowLocation(true)
-                    // 如果之前没有获取过位置，立即获取
-                    if (!location) {
-                      getLocation()
-                    }
+                    // 如果之前没有获取过位置，不自动获取
                   }
                 }}
                 className={`px-3 py-1 text-sm rounded-full transition-colors ${
@@ -343,6 +343,7 @@ export default function NewPost() {
                   <div className="flex items-center justify-center gap-2 py-3 text-gray-500">
                     <Loader2 className="w-4 h-4 animate-spin" />
                     <span>正在获取您的位置...</span>
+                    <p className="text-xs text-gray-400 mt-2">如果浏览器没有弹出权限请求，请检查浏览器设置</p>
                   </div>
                 ) : location && !locationError ? (
                   <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
@@ -350,20 +351,29 @@ export default function NewPost() {
                       <MapPin className="w-5 h-5 text-green-600" />
                       <span className="text-green-700 font-medium">{location.name}</span>
                     </div>
-                    <button
-                      onClick={() => {
-                        setShowManualInput(true)
-                        setManualLocation(location.name)
-                      }}
-                      className="text-sm text-gray-500 hover:text-gray-700"
-                    >
-                      修改
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          setShowManualInput(true)
+                          setManualLocation(location.name)
+                        }}
+                        className="text-sm text-gray-500 hover:text-gray-700"
+                      >
+                        修改
+                      </button>
+                      <button
+                        onClick={retryGetLocation}
+                        className="p-1 text-gray-400 hover:text-gray-600"
+                        title="刷新位置"
+                      >
+                        <Navigation className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 ) : null}
 
                 {/* 错误提示 */}
-                {locationError && (
+                {locationError && hasRequestedLocation && (
                   <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
                     <div className="flex items-start gap-3">
                       <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
@@ -453,14 +463,19 @@ export default function NewPost() {
                 )}
 
                 {/* 获取位置按钮（当没有位置且没有手动输入时显示） */}
-                {!location && !showManualInput && !loadingLocation && !locationError && (
-                  <button
-                    onClick={getLocation}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gray-50 rounded-lg text-gray-600 hover:bg-gray-100 border border-gray-200"
-                  >
-                    <MapPin className="w-5 h-5" />
-                    <span>获取当前位置</span>
-                  </button>
+                {!location && !showManualInput && !loadingLocation && (!hasRequestedLocation || !locationError) && (
+                  <div className="space-y-2">
+                    <button
+                      onClick={handleGetLocationClick}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium"
+                    >
+                      <MapPin className="w-5 h-5" />
+                      <span>获取当前位置</span>
+                    </button>
+                    <p className="text-xs text-gray-500 text-center">
+                      点击获取位置后，浏览器会询问位置权限
+                    </p>
+                  </div>
                 )}
 
                 {/* 位置提示 */}
