@@ -20,6 +20,8 @@ import Layout from '../components/Layout'
 import DateTime from '../components/DateTime'
 import Weather from '../components/Weather'
 
+
+const initialLoadRef = useRef(false);
 // 每日格言数据
 const DAILY_QUOTES = [
   { text: "生活不是等待风暴过去，而是学会在雨中跳舞。", author: "维维安·格林" },
@@ -577,23 +579,25 @@ useEffect(() => {
  
   // 初始化加载所有数据
   useEffect(() => {
-    if (user) {
-      loadAllData();
-      fetchFunFact();
-      fetchJoke();
-      fetchWeather();
-      
-      // 设置定时刷新
-      const jokeInterval = setInterval(fetchJoke, 10 * 60 * 1000);
-      const weatherInterval = setInterval(fetchWeather, 30 * 60 * 1000);
-      
-      return () => {
-        clearInterval(jokeInterval);
-        clearInterval(weatherInterval);
-      };
-    }
-  }, [user]);
-
+  if (user && !initialLoadRef.current) {
+    initialLoadRef.current = true;
+    
+    // 你的现有代码...
+    loadAllData();
+    fetchFunFact();
+    fetchJoke();
+    fetchWeather();
+    
+    const jokeInterval = setInterval(fetchJoke, 10 * 60 * 1000);
+    const weatherInterval = setInterval(fetchWeather, 30 * 60 * 1000);
+    
+    return () => {
+      clearInterval(jokeInterval);
+      clearInterval(weatherInterval);
+    };
+  }
+}, [user]);
+  
   // 新闻分类切换时重新获取
   useEffect(() => {
     fetchNews();
