@@ -14,17 +14,22 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 8 # 使用pnpm 8，这是一个广泛兼容的稳定版本
-          run_install: false
+          version: 8
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm' # 此处的缓存配置现在由pnpm/action-setup处理，更清晰
+          cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install
+        run: |
+          # 确保 axios 被安装
+          pnpm add axios
+          # 安装项目所有依赖
+          pnpm install
+          # 安装 TypeScript 类型声明
+          pnpm add -D @types/node @types/react @types/react-dom @types/axios
 
       - name: Build project
         run: pnpm run build
