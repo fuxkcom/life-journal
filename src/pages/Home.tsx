@@ -436,140 +436,119 @@ export default function Home() {
   }, [])
 
   // 获取实时新闻
-  // 移除 axios 导入
-// import axios from 'axios'
-
-// 修改 fetchNews 函数使用 fetch
-const fetchNews = async () => {
-  setNewsLoading(true);
-  setNewsError('');
-  try {
-    // 注意：替换为你的 NewsAPI 密钥
-    const apiKey = process.env.REACT_APP_NEWS_API_KEY || 'YOUR_NEWSAPI_KEY';
-    
-    const response = await fetch(
-      `https://newsapi.org/v2/top-headlines?country=us&category=${activeNewsCategory}&pageSize=5&apiKey=${apiKey}`
-    );
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    
-    if (data.articles) {
-      const formattedNews = data.articles
-        .filter((article: any) => article.title !== '[Removed]')
-        .map((article: any, index: number) => ({
-          id: `${article.publishedAt}-${index}`,
-          title: article.title,
-          description: article.description,
-          source: article.source.name,
-          time: new Date(article.publishedAt).toLocaleTimeString('zh-CN', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
-          }),
-          url: article.url,
-          image: article.urlToImage,
-          isHot: index < 2
-        }));
-      setNews(formattedNews);
-    }
-  } catch (error: any) {
-    console.error('获取新闻失败:', error);
-    setNewsError('暂时无法加载新闻，请稍后重试');
-    setNews([
-      {
-        id: '1',
-        title: '如何获取实时新闻',
-        description: '注册 NewsAPI 获取 API 密钥',
-        source: '开发者提示',
-        time: '刚刚',
-        url: 'https://newsapi.org/register',
-        isHot: true
+  const fetchNews = async () => {
+    setNewsLoading(true);
+    setNewsError('');
+    try {
+      // 注意：替换为你的 NewsAPI 密钥
+      const apiKey = process.env.REACT_APP_NEWS_API_KEY || 'c51e13d7fe614683a9c920d80b66570e';
+      
+      const response = await axios.get(
+        `https://newsapi.org/v2/top-headlines?country=us&category=${activeNewsCategory}&pageSize=5&apiKey=${apiKey}`
+      );
+      
+      if (response.data.articles) {
+        const formattedNews = response.data.articles
+          .filter((article: any) => article.title !== '[Removed]')
+          .map((article: any, index: number) => ({
+            id: `${article.publishedAt}-${index}`,
+            title: article.title,
+            description: article.description,
+            source: article.source.name,
+            time: new Date(article.publishedAt).toLocaleTimeString('zh-CN', { 
+              hour: '2-digit', 
+              minute: '2-digit' 
+            }),
+            url: article.url,
+            image: article.urlToImage,
+            isHot: index < 2
+          }));
+        setNews(formattedNews);
       }
-    ]);
-  } finally {
-    setNewsLoading(false);
-  }
-};
+    } catch (error: any) {
+      console.error('获取新闻失败:', error);
+      setNewsError('暂时无法加载新闻，请稍后重试');
+      setNews([
+        {
+          id: '1',
+          title: '如何获取实时新闻',
+          description: '注册 NewsAPI 获取 API 密钥',
+          source: '开发者提示',
+          time: '刚刚',
+          url: 'https://newsapi.org/register',
+          isHot: true
+        }
+      ]);
+    } finally {
+      setNewsLoading(false);
+    }
+  };
 
-// 修改 fetchFunFact 函数
-const fetchFunFact = async () => {
-  setFactLoading(true);
-  try {
-    const response = await fetch('https://uselessfacts.jsph.pl/api/v2/facts/random?language=en');
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    setFunFact(data.text);
-  } catch (error) {
-    console.error('获取趣味事实失败:', error);
-    setFunFact('你知道吗？蜜蜂的翅膀每分钟可以拍动200次！');
-  } finally {
-    setFactLoading(false);
-  }
-};
-
-// 修改 fetchJoke 函数
-const fetchJoke = async () => {
-  setJokeLoading(true);
-  try {
-    const response = await fetch('https://v2.jokeapi.dev/joke/Any?type=single&lang=en');
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    
-    if (data.joke) {
-      setJoke(data.joke);
-    } else if (data.setup && data.delivery) {
-      setJoke(`${data.setup} ... ${data.delivery}`);
-    }
-  } catch (error) {
-    console.error('获取笑话失败:', error);
-    setJoke('为什么程序员喜欢黑暗模式？因为光线会吸引bug！');
-  } finally {
-    setJokeLoading(false);
-  }
-};
-
-// 修改 fetchWeather 函数
-const fetchWeather = async () => {
-  setWeatherLoading(true);
-  try {
-    const apiKey = process.env.REACT_APP_WEATHER_API_KEY || 'YOUR_OPENWEATHER_KEY';
-    const response = await fetch(
-      `https://api.openweathermap.org/data/2.5/weather?q=Beijing&units=metric&appid=${apiKey}&lang=zh_cn`
-    );
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    
-    if (data) {
-      setWeather({
-        temp: Math.round(data.main.temp),
-        description: data.weather[0].description,
-        icon: data.weather[0].icon,
-        city: data.name,
-        humidity: data.main.humidity,
-        windSpeed: data.wind.speed
+  // 获取趣味事实
+  const fetchFunFact = async () => {
+    setFactLoading(true);
+    try {
+      const response = await axios.get('https://uselessfacts.jsph.pl/api/v2/facts/random', {
+        params: { language: 'en' }
       });
+      setFunFact(response.data.text);
+    } catch (error) {
+      console.error('获取趣味事实失败:', error);
+      setFunFact('你知道吗？蜜蜂的翅膀每分钟可以拍动200次！');
+    } finally {
+      setFactLoading(false);
     }
-  } catch (error) {
-    console.error('获取天气失败:', error);
-  } finally {
-    setWeatherLoading(false);
-  }
-};
+  };
+
+  // 获取每日笑话
+  const fetchJoke = async () => {
+    setJokeLoading(true);
+    try {
+      const response = await axios.get('https://v2.jokeapi.dev/joke/Any', {
+        params: {
+          type: 'single',
+          lang: 'en'
+        }
+      });
+      
+      if (response.data.joke) {
+        setJoke(response.data.joke);
+      } else if (response.data.setup && response.data.delivery) {
+        setJoke(`${response.data.setup} ... ${response.data.delivery}`);
+      }
+    } catch (error) {
+      console.error('获取笑话失败:', error);
+      setJoke('为什么程序员喜欢黑暗模式？因为光线会吸引bug！');
+    } finally {
+      setJokeLoading(false);
+    }
+  };
+
+  // 获取天气信息
+  const fetchWeather = async () => {
+    setWeatherLoading(true);
+    try {
+      const apiKey = process.env.REACT_APP_WEATHER_API_KEY || '02ad83c869b7f3a00457ce447f6f0974';
+      const response = await axios.get(
+        `https://api.openweathermap.org/data/2.5/weather?q=Beijing&units=metric&appid=${apiKey}&lang=zh_cn`
+      );
+      
+      if (response.data) {
+        setWeather({
+          temp: Math.round(response.data.main.temp),
+          description: response.data.weather[0].description,
+          icon: response.data.weather[0].icon,
+          city: response.data.name,
+          humidity: response.data.main.humidity,
+          windSpeed: response.data.wind.speed
+        });
+      }
+    } catch (error) {
+      console.error('获取天气失败:', error);
+    } finally {
+      setWeatherLoading(false);
+    }
+  };
 
   // 初始化加载所有数据
   useEffect(() => {
