@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { supabase, Post, Profile, Comment, Mood } from '../lib/supabase'
@@ -20,9 +20,6 @@ import Layout from '../components/Layout'
 import DateTime from '../components/DateTime'
 import Weather from '../components/Weather'
 
-
-const initialLoadRef = useRef(false);
-const CACHE_KEY = 'home_data_cache';
 // 每日格言数据
 const DAILY_QUOTES = [
   { text: "生活不是等待风暴过去，而是学会在雨中跳舞。", author: "维维安·格林" },
@@ -444,7 +441,7 @@ export default function Home() {
     setNewsError('');
     try {
       // 注意：替换为你的 NewsAPI 密钥
-      const apiKey = process.env.REACT_APP_NEWS_API_KEY || 'c51e13d7fe614683a9c920d80b66570e';
+      const apiKey = process.env.REACT_APP_NEWS_API_KEY || 'YOUR_NEWSAPI_KEY';
       
       const response = await axios.get(
         `https://newsapi.org/v2/top-headlines?country=us&category=${activeNewsCategory}&pageSize=5&apiKey=${apiKey}`
@@ -531,7 +528,7 @@ export default function Home() {
   const fetchWeather = async () => {
     setWeatherLoading(true);
     try {
-      const apiKey = process.env.REACT_APP_WEATHER_API_KEY || '02ad83c869b7f3a00457ce447f6f0974';
+      const apiKey = process.env.REACT_APP_WEATHER_API_KEY || 'YOUR_OPENWEATHER_KEY';
       const response = await axios.get(
         `https://api.openweathermap.org/data/2.5/weather?q=Beijing&units=metric&appid=${apiKey}&lang=zh_cn`
       );
@@ -553,105 +550,25 @@ export default function Home() {
     }
   };
 
-useEffect(() => {
-  if (user) {
-    console.log('🔄 加载数据（缓存已禁用）');
-    setLoading(true);
-    
-    // 清理可能的缓存
-    sessionStorage.removeItem(HOME_CACHE_KEY);
-    
-    // 加载所有数据
-    loadAllData();
-    fetchFunFact();
-    fetchJoke();
-    fetchWeather();
-    
-    // 定时器...
-    
-    return () => {
-      // 不保存到缓存
-      clearInterval(jokeInterval);
-      clearInterval(weatherInterval);
-    };
-  }
-}, [user]);
-    
-    // 2. 没有缓存或缓存过期，正常加载
-    console.log('无缓存或缓存过期，重新加载数据');
-    loadAllData();
-    fetchFunFact();
-    fetchJoke();
-    fetchWeather();
-    
-    // 定时器...
-    
-    return () => {
-      // 组件卸载前保存数据到 sessionStorage
-      if (posts.length > 0) {
-        const dataToCache = {
-          posts,
-          stats,
-          moods,
-          activities,
-          friendMoods,
-          funFact,
-          joke,
-          weather,
-          timestamp: Date.now()
-        };
-        sessionStorage.setItem(CACHE_KEY, JSON.stringify(dataToCache));
-      }
-    };
-  }
-}, [user]);
-  
-  // 在 Home.tsx 的 useEffect 中添加
-useEffect(() => {
-  let isSubscribed = true;
-  
-  const loadData = async () => {
-    if (user && isSubscribed) {
-      await loadAllData();
-    }
-  };
-  
-  loadData();
-  
-  // 监听路由变化，但不要重新加载数据
-  const handleRouteChange = () => {
-    // 不执行任何操作，保持现有状态
-  };
-  
-  window.addEventListener('popstate', handleRouteChange);
-  
-  return () => {
-    isSubscribed = false;
-    window.removeEventListener('popstate', handleRouteChange);
-  };
-}, [user]); // 只在用户状态变化时执行
- 
   // 初始化加载所有数据
   useEffect(() => {
-  if (user && !initialLoadRef.current) {
-    initialLoadRef.current = true;
-    
-    // 你的现有代码...
-    loadAllData();
-    fetchFunFact();
-    fetchJoke();
-    fetchWeather();
-    
-    const jokeInterval = setInterval(fetchJoke, 10 * 60 * 1000);
-    const weatherInterval = setInterval(fetchWeather, 30 * 60 * 1000);
-    
-    return () => {
-      clearInterval(jokeInterval);
-      clearInterval(weatherInterval);
-    };
-  }
-}, [user]);
-  
+    if (user) {
+      loadAllData();
+      fetchFunFact();
+      fetchJoke();
+      fetchWeather();
+      
+      // 设置定时刷新
+      const jokeInterval = setInterval(fetchJoke, 10 * 60 * 1000);
+      const weatherInterval = setInterval(fetchWeather, 30 * 60 * 1000);
+      
+      return () => {
+        clearInterval(jokeInterval);
+        clearInterval(weatherInterval);
+      };
+    }
+  }, [user]);
+
   // 新闻分类切换时重新获取
   useEffect(() => {
     fetchNews();
