@@ -318,6 +318,9 @@ const PostImageGallery = ({
   );
 };
 
+// 缓存键
+const HOME_CACHE_KEY = 'home_page_cache_v2';
+
 export default function Home() {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -340,28 +343,15 @@ export default function Home() {
   const [friendMoods, setFriendMoods] = useState<(Mood & { profile: Profile })[]>([])
   const [activeMenuPostId, setActiveMenuPostId] = useState<string | null>(null)
   
-  // 缓存引用
-  const initialLoadRef = useRef(false)
+  // 缓存引用 - 用于记录是否已初始化
+  const hasInitialized = useRef(false)
   
-  // 缓存键
-  const HOME_CACHE_KEY = 'home_page_data_cache'
-
   // 获取每日格言
   const dailyQuote = useMemo(() => {
     const today = new Date()
     const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / 86400000)
     return DAILY_QUOTES[dayOfYear % DAILY_QUOTES.length]
   }, [])
-
-  // 中文新闻分类
-  const CHINESE_NEWS_CATEGORIES = [
-    { id: 'general', name: '综合', icon: Newspaper, color: 'text-blue-500' },
-    { id: 'technology', name: '科技', icon: Zap, color: 'text-purple-500' },
-    { id: 'finance', name: '财经', icon: TrendingUpIcon, color: 'text-green-500' },
-    { id: 'entertainment', name: '娱乐', icon: Film, color: 'text-pink-500' },
-    { id: 'sports', name: '体育', icon: Trophy, color: 'text-orange-500' },
-    { id: 'health', name: '健康', icon: HeartIcon, color: 'text-red-500' },
-  ]
 
   // 中文趣味知识库
   const CHINESE_FUN_FACTS = [
@@ -460,74 +450,143 @@ export default function Home() {
     },
   ]
 
-  // 初始化加载所有数据
-  useEffect(() => {
-    if (user) {
-      // 1. 尝试从缓存恢复
-      try {
-        const cachedData = sessionStorage.getItem(HOME_CACHE_KEY)
-        let shouldUseCache = false
-        
-        if (cachedData) {
-          const parsed = JSON.parse(cachedData)
-          
-          // 验证缓存数据
-          if (parsed.userId === user.id) {
-            const now = Date.now()
-            const CACHE_DURATION = 10 * 60 * 1000 // 10分钟
-            
-            if (parsed.timestamp && (now - parsed.timestamp) < CACHE_DURATION) {
-              console.log('✅ 使用有效的缓存数据')
-              
-              // 安全地设置状态
-              setPosts(Array.isArray(parsed.posts) ? parsed.posts : [])
-              setStats(parsed.stats || {})
-              setMoods(Array.isArray(parsed.moods) ? parsed.moods : [])
-              setActivities(Array.isArray(parsed.activities) ? parsed.activities : [])
-              setFriendMoods(Array.isArray(parsed.friendMoods) ? parsed.friendMoods : [])
-              setLoading(false)
-              
-              shouldUseCache = true
-              
-              // 后台静默更新
-              setTimeout(() => {
-                loadAllData() // true 表示静默模式
-              }, 2000)
-            }
-          }
-        }
-        
-        // 2. 如果没有使用缓存，正常加载
-        if (!shouldUseCache) {
-          console.log('🔄 加载新数据')
-          setLoading(true)
-          loadAllData()
-        }
-        
-      } catch (error) {
-        console.error('❌ 缓存处理失败:', error)
-        setLoading(true)
-        loadAllData()
+  // 修改后的 loadAllData 函数 - 支持静默模式
+  const loadAllData = async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+    }
+    
+    try {
+      await Promise.all([
+        loadPosts(),
+        loadStats(),
+        loadMoods(),
+        loadActivities(),
+        loadFriendMoods()
+      ]);
+      
+      // 保存到缓存
+      if (user && posts.length > 0) {
+        saveToCache();
       }
       
-    } else {
-      // 用户未登录时清理状态
-      setPosts([])
-      setLoading(false)
+    } catch (error) {
+      console.error('加载数据失败:', error);
+    } finally {
+      if (!silent) {
+        setLoading(false);
+      }
     }
-  }, [user])
+  };
 
-  const loadAllData = async () => {
-    setLoading(true)
-    await Promise.all([
-      loadPosts(),
-      loadStats(),
-      loadMoods(),
-      loadActivities(),
-      loadFriendMoods()
-    ])
-    setLoading(false)
-  }
+  // 保存数据到缓存
+  const saveToCache = () => {
+    if (!user) return;
+    
+    try {
+      const cacheData = {
+        userId: user.id,
+        posts: posts,
+        stats: stats,
+        moods: moods,
+        activities: activities,
+        friendMoods: friendMoods,
+        timestamp: Date.now()
+      };
+      sessionStorage.setItem(HOME_CACHE_KEY, JSON.stringify(cacheData));
+    } catch (error) {
+      console.error('保存缓存失败:', error);
+    }
+  };
+
+  // 从缓存加载数据
+  const loadFromCache = () => {
+    try {
+      const cachedData = sessionStorage.getItem(HOME_CACHE_KEY);
+      if (!cachedData) return false;
+      
+      const parsed = JSON.parse(cachedData);
+      const now = Date.now();
+      const CACHE_DURATION = 5 * 60 * 1000; // 5分钟
+      
+      // 检查缓存是否属于当前用户且在有效期内
+      if (parsed.userId === user?.id && parsed.timestamp && (now - parsed.timestamp) < CACHE_DURATION) {
+        console.log('✅ 从缓存恢复数据');
+        
+        // 恢复数据
+        if (parsed.posts) setPosts(parsed.posts);
+        if (parsed.stats) setStats(parsed.stats);
+        if (parsed.moods) setMoods(parsed.moods);
+        if (parsed.activities) setActivities(parsed.activities);
+        if (parsed.friendMoods) setFriendMoods(parsed.friendMoods);
+        
+        // 设置今日心情
+        if (parsed.moods && parsed.moods.length > 0) {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const todaysMood = parsed.moods.find((m: any) => new Date(m.created_at) >= today);
+          setTodayMood(todaysMood || null);
+        }
+        
+        return true;
+      }
+    } catch (error) {
+      console.error('读取缓存失败:', error);
+    }
+    
+    return false;
+  };
+
+  // 初始化加载所有数据 - 修改后的版本
+  useEffect(() => {
+    // 清理旧的缓存
+    const cleanupOldCache = () => {
+      try {
+        const cached = sessionStorage.getItem(HOME_CACHE_KEY);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          // 如果缓存超过1天，清理它
+          if (Date.now() - parsed.timestamp > 24 * 60 * 60 * 1000) {
+            sessionStorage.removeItem(HOME_CACHE_KEY);
+          }
+        }
+      } catch (error) {
+        // 如果缓存格式错误，清理它
+        sessionStorage.removeItem(HOME_CACHE_KEY);
+      }
+    };
+
+    cleanupOldCache();
+
+    if (user && !hasInitialized.current) {
+      hasInitialized.current = true;
+      
+      // 先尝试从缓存加载
+      const cacheLoaded = loadFromCache();
+      
+      if (cacheLoaded) {
+        // 缓存加载成功，设置加载完成
+        setLoading(false);
+        
+        // 后台静默更新数据（用户无感知）
+        setTimeout(() => {
+          console.log('🔄 后台静默更新数据');
+          loadAllData(true); // 静默模式
+        }, 1000);
+      } else {
+        // 没有缓存或缓存无效，正常加载
+        console.log('🔄 加载新数据');
+        loadAllData();
+      }
+      
+      // 组件卸载前保存数据
+      return () => {
+        if (user && posts.length > 0) {
+          saveToCache();
+        }
+      };
+    }
+  }, [user]);
 
   const loadStats = async () => {
     if (!user) return
@@ -799,6 +858,16 @@ export default function Home() {
     const [chineseFunFact, setChineseFunFact] = useState('')
     const [chineseJoke, setChineseJoke] = useState('')
     const [refreshKey, setRefreshKey] = useState(0)
+
+    // 中文新闻分类
+    const CHINESE_NEWS_CATEGORIES = [
+      { id: 'general', name: '综合', icon: Newspaper, color: 'text-blue-500' },
+      { id: 'technology', name: '科技', icon: Zap, color: 'text-purple-500' },
+      { id: 'finance', name: '财经', icon: TrendingUpIcon, color: 'text-green-500' },
+      { id: 'entertainment', name: '娱乐', icon: Film, color: 'text-pink-500' },
+      { id: 'sports', name: '体育', icon: Trophy, color: 'text-orange-500' },
+      { id: 'health', name: '健康', icon: HeartIcon, color: 'text-red-500' },
+    ]
 
     // 中文趣味工具
     const CHINESE_FUN_TOOLS = [
@@ -1352,9 +1421,11 @@ export default function Home() {
                 <h2 className="text-xl font-bold text-stone-900">好友动态</h2>
                 <button 
                   onClick={() => {
-                    loadAllData()
-                    // 清除缓存，强制刷新
-                    sessionStorage.removeItem(HOME_CACHE_KEY)
+                    // 清除缓存并强制刷新
+                    sessionStorage.removeItem(HOME_CACHE_KEY);
+                    hasInitialized.current = false;
+                    setLoading(true);
+                    loadAllData();
                   }}
                   className="text-sm text-terracotta-500 hover:text-terracotta-600 transition-colors flex items-center gap-1"
                 >
