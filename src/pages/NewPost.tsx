@@ -1,12 +1,15 @@
-import { useState, useRef, useEffect } from 'react' // 确保导入所有 hooks
+// src/pages/NewPost.tsx
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { 
   ArrowLeft, Image, X, Send, Loader2, MapPin, MapPinOff, 
-  Globe, Building2, Camera, Smile, Tag, Users, Lock, 
-  Check, Clock, Home as HomeIcon
+  Globe, Building2, Camera, Users, Lock, Clock, HomeIcon
 } from 'lucide-react'
+
+// 导入位置工具函数
+import { getLocationFromStorage } from '../utils/location'
 
 export default function NewPost() {
   const { user } = useAuth()
@@ -19,7 +22,7 @@ export default function NewPost() {
   const [loading, setLoading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   
-  // 位置相关状态 - 确保正确定义所有状态
+  // 位置相关状态
   const [showLocation, setShowLocation] = useState(false)
   const [selectedLocation, setSelectedLocation] = useState<string>('')
   const [usingCurrentLocation, setUsingCurrentLocation] = useState(false)
@@ -27,11 +30,6 @@ export default function NewPost() {
   
   // 隐私设置
   const [privacy, setPrivacy] = useState<'public' | 'friends' | 'private'>('friends')
-  const privacyOptions = [
-    { id: 'public', icon: Globe, label: '公开', desc: '所有人可见' },
-    { id: 'friends', icon: Users, label: '仅朋友', desc: '仅朋友可见' },
-    { id: 'private', icon: Lock, label: '仅自己', desc: '仅自己可见' }
-  ]
 
   // 常用位置
   const popularLocations = [
@@ -45,24 +43,15 @@ export default function NewPost() {
     '西安', '重庆', '苏州', '天津', '厦门', '青岛', '长沙', '大连'
   ]
 
-  // 初始化位置信息 - 使用 useEffect
+  // 初始化位置信息
   useEffect(() => {
-    // 检查 localStorage 中的共享位置
-    const storedLocation = localStorage.getItem('sharedLocation')
+    // 从本地存储获取 Home.tsx 保存的位置
+    const storedLocation = getLocationFromStorage()
     if (storedLocation) {
-      try {
-        const locationData = JSON.parse(storedLocation)
-        // 检查位置是否在 1 小时内（可调整时间）
-        if (Date.now() - locationData.timestamp < 60 * 60 * 1000) {
-          setSelectedLocation(locationData.name)
-          setLastLocationTime(locationData.timestamp)
-          setUsingCurrentLocation(true)
-          // 自动开启位置显示
-          setShowLocation(true)
-        }
-      } catch (error) {
-        console.error('读取存储的位置失败:', error)
-      }
+      setSelectedLocation(storedLocation.name)
+      setLastLocationTime(storedLocation.timestamp)
+      setUsingCurrentLocation(true)
+      setShowLocation(true)
     }
   }, [])
 
@@ -201,20 +190,14 @@ export default function NewPost() {
     return `${days}天前`
   }
 
-  // 选择位置函数
-  const selectLocation = (location: string) => {
-    setSelectedLocation(location)
-    setUsingCurrentLocation(false)
-  }
-
   // 字符计数
   const charCount = content.length
   const maxChars = 1000
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gray-50">
       {/* 顶部导航栏 */}
-      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-sm border-b border-gray-200">
+      <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
         <div className="flex items-center justify-between px-4 py-3 max-w-3xl mx-auto">
           <button
             onClick={() => navigate(-1)}
@@ -232,7 +215,7 @@ export default function NewPost() {
             className={`px-6 py-2 rounded-full font-medium flex items-center gap-2 transition-all ${
               loading || (!content.trim() && images.length === 0)
                 ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                : 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:shadow-lg hover:scale-105 active:scale-95'
+                : 'bg-blue-500 text-white hover:bg-blue-600'
             }`}
           >
             {loading ? (
@@ -257,35 +240,13 @@ export default function NewPost() {
             value={content}
             onChange={(e) => setContent(e.target.value)}
             placeholder="这一刻的想法..."
-            className="w-full min-h-[200px] p-5 text-lg bg-white rounded-2xl border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 resize-none transition-all placeholder-gray-400 shadow-sm"
+            className="w-full min-h-[200px] p-5 text-lg bg-white rounded-xl border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 resize-none transition-all"
             autoFocus
             maxLength={maxChars}
           />
           
           {/* 字符计数 */}
-          <div className="flex justify-between items-center mt-2 px-1">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-2 px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
-              >
-                <Camera className="w-4 h-4" />
-                添加图片 ({images.length}/9)
-              </button>
-              
-              <button
-                onClick={() => setShowLocation(!showLocation)}
-                className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-full transition-colors ${
-                  showLocation 
-                    ? 'bg-green-100 text-green-700 hover:bg-green-200' 
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                <MapPin className="w-4 h-4" />
-                位置
-              </button>
-            </div>
-            
+          <div className="flex justify-end mt-2">
             <span className={`text-sm ${charCount > maxChars * 0.9 ? 'text-red-500' : 'text-gray-400'}`}>
               {charCount}/{maxChars}
             </span>
@@ -297,7 +258,7 @@ export default function NewPost() {
           <div className="mb-6">
             <div className={`grid gap-3 ${previews.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
               {previews.map((preview, index) => (
-                <div key={index} className="relative group rounded-xl overflow-hidden shadow-md">
+                <div key={index} className="relative rounded-lg overflow-hidden">
                   <img 
                     src={preview} 
                     alt="" 
@@ -305,7 +266,7 @@ export default function NewPost() {
                   />
                   <button
                     onClick={() => removeImage(index)}
-                    className="absolute top-2 right-2 p-1.5 bg-black/60 hover:bg-black/80 text-white rounded-full transition-all"
+                    className="absolute top-2 right-2 p-1.5 bg-black/60 hover:bg-black/80 text-white rounded-full"
                     aria-label="删除图片"
                   >
                     <X className="w-4 h-4" />
@@ -318,25 +279,16 @@ export default function NewPost() {
 
         {/* 位置选择器 */}
         {showLocation && (
-          <div className="mb-6 bg-white rounded-2xl border-2 border-gray-200 p-5 shadow-sm">
+          <div className="mb-6 bg-white rounded-xl border border-gray-300 p-4">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <MapPin className="w-5 h-5 text-blue-600" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900">添加位置</h3>
-                  <p className="text-sm text-gray-500">让朋友知道你在哪里</p>
-                </div>
+                <MapPin className="w-5 h-5 text-gray-600" />
+                <h3 className="font-semibold text-gray-900">添加位置</h3>
               </div>
               
               <button
-                onClick={() => {
-                  setShowLocation(false)
-                  setSelectedLocation('')
-                  setUsingCurrentLocation(false)
-                }}
-                className="p-2 hover:bg-gray-100 rounded-full"
+                onClick={() => setShowLocation(false)}
+                className="p-1 hover:bg-gray-100 rounded-full"
               >
                 <X className="w-5 h-5 text-gray-400" />
               </button>
@@ -344,57 +296,48 @@ export default function NewPost() {
 
             {/* 当前/最后已知位置 */}
             {(usingCurrentLocation && selectedLocation) && (
-              <div className="mb-4 p-3 bg-blue-50 rounded-xl border border-blue-100">
+              <div className="mb-4 p-3 bg-blue-50 rounded-lg">
                 <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-3">
-                    <div className="p-2 bg-blue-100 rounded-lg mt-0.5">
-                      <MapPin className="w-4 h-4 text-blue-600" />
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-medium text-blue-800">{selectedLocation}</span>
+                      <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
+                        当前位置
+                      </span>
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium text-blue-800">{selectedLocation}</span>
-                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
-                          当前位置
-                        </span>
+                    {lastLocationTime && (
+                      <div className="flex items-center gap-1 text-sm text-blue-600">
+                        <Clock className="w-3 h-3" />
+                        <span>{formatTimeAgo(lastLocationTime)}更新</span>
                       </div>
-                      {lastLocationTime && (
-                        <div className="flex items-center gap-1 text-sm text-blue-600">
-                          <Clock className="w-3 h-3" />
-                          <span>{formatTimeAgo(lastLocationTime)}更新</span>
-                        </div>
-                      )}
-                    </div>
+                    )}
                   </div>
-                  <Check className="w-5 h-5 text-green-500" />
                 </div>
               </div>
             )}
 
-            {/* 位置搜索/输入 */}
+            {/* 位置输入 */}
             <div className="mb-4">
               <input
                 type="text"
                 value={selectedLocation}
                 onChange={(e) => setSelectedLocation(e.target.value)}
-                placeholder="搜索或输入位置..."
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                placeholder="输入位置..."
+                className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
               />
             </div>
 
             {/* 常用位置 */}
             <div className="mb-4">
-              <h4 className="font-medium text-gray-700 mb-2 flex items-center gap-2">
-                <HomeIcon className="w-4 h-4" />
-                常用位置
-              </h4>
+              <h4 className="font-medium text-gray-700 mb-2">常用位置</h4>
               <div className="flex flex-wrap gap-2">
                 {popularLocations.map((location, index) => (
                   <button
                     key={index}
-                    onClick={() => selectLocation(location)}
-                    className={`px-3 py-1.5 text-sm rounded-full transition-all ${
+                    onClick={() => setSelectedLocation(location)}
+                    className={`px-3 py-1 text-sm rounded-full ${
                       selectedLocation === location
-                        ? 'bg-blue-600 text-white'
+                        ? 'bg-blue-500 text-white'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                   >
@@ -411,11 +354,11 @@ export default function NewPost() {
                 {popularCities.map((city, index) => (
                   <button
                     key={index}
-                    onClick={() => selectLocation(city)}
-                    className={`px-3 py-2 text-sm rounded-xl transition-all text-center ${
+                    onClick={() => setSelectedLocation(city)}
+                    className={`px-3 py-2 text-sm rounded-lg text-center ${
                       selectedLocation === city
-                        ? 'bg-purple-600 text-white shadow-sm'
-                        : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200'
+                        ? 'bg-purple-500 text-white'
+                        : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-300'
                     }`}
                   >
                     {city}
@@ -427,60 +370,60 @@ export default function NewPost() {
         )}
 
         {/* 隐私设置 */}
-        <div className="mb-6 bg-white rounded-2xl border-2 border-gray-200 p-5 shadow-sm">
+        <div className="mb-6 bg-white rounded-xl border border-gray-300 p-4">
           <h3 className="font-semibold text-gray-900 mb-4">谁可以看</h3>
           
           <div className="grid grid-cols-3 gap-3">
-            {privacyOptions.map((option) => {
-              const isSelected = privacy === option.id
-              const Icon = option.icon
-              
-              return (
-                <button
-                  key={option.id}
-                  onClick={() => setPrivacy(option.id as any)}
-                  className={`p-4 rounded-xl border-2 transition-all text-center ${
-                    isSelected
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <div className={`p-2 rounded-full mb-3 w-fit mx-auto ${
-                    isSelected ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'
-                  }`}>
-                    <Icon className="w-5 h-5" />
-                  </div>
-                  <h4 className="font-medium text-gray-900">{option.label}</h4>
-                  <p className="text-xs text-gray-500 mt-1">{option.desc}</p>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* 发布提示 */}
-        <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-100 rounded-2xl p-5">
-          <div className="flex items-start gap-3">
-            <div className="p-2 bg-white rounded-lg shadow-sm">
-              <Send className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <h4 className="font-semibold text-blue-900 mb-2">发布提示</h4>
-              <ul className="text-sm text-blue-800 space-y-1.5">
-                <li className="flex items-start gap-2">
-                  <div className="w-1.5 h-1.5 bg-blue-400 rounded-full mt-1.5"></div>
-                  <span>分享生活中的美好瞬间</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="w-1.5 h-1.5 bg-blue-400 rounded-full mt-1.5"></div>
-                  <span>添加位置让朋友知道你在哪里</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="w-1.5 h-1.5 bg-blue-400 rounded-full mt-1.5"></div>
-                  <span>选择适合的隐私设置保护个人信息</span>
-                </li>
-              </ul>
-            </div>
+            <button
+              onClick={() => setPrivacy('public')}
+              className={`p-4 rounded-lg border-2 text-center ${
+                privacy === 'public'
+                  ? 'border-blue-500 bg-blue-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className={`p-2 rounded-full mb-3 w-fit mx-auto ${
+                privacy === 'public' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'
+              }`}>
+                <Globe className="w-5 h-5" />
+              </div>
+              <h4 className="font-medium text-gray-900">公开</h4>
+              <p className="text-xs text-gray-500 mt-1">所有人可见</p>
+            </button>
+            
+            <button
+              onClick={() => setPrivacy('friends')}
+              className={`p-4 rounded-lg border-2 text-center ${
+                privacy === 'friends'
+                  ? 'border-blue-500 bg-blue-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className={`p-2 rounded-full mb-3 w-fit mx-auto ${
+                privacy === 'friends' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'
+              }`}>
+                <Users className="w-5 h-5" />
+              </div>
+              <h4 className="font-medium text-gray-900">仅朋友</h4>
+              <p className="text-xs text-gray-500 mt-1">仅朋友可见</p>
+            </button>
+            
+            <button
+              onClick={() => setPrivacy('private')}
+              className={`p-4 rounded-lg border-2 text-center ${
+                privacy === 'private'
+                  ? 'border-blue-500 bg-blue-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <div className={`p-2 rounded-full mb-3 w-fit mx-auto ${
+                privacy === 'private' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'
+              }`}>
+                <Lock className="w-5 h-5" />
+              </div>
+              <h4 className="font-medium text-gray-900">仅自己</h4>
+              <p className="text-xs text-gray-500 mt-1">仅自己可见</p>
+            </button>
           </div>
         </div>
 
@@ -494,13 +437,13 @@ export default function NewPost() {
         />
       </main>
 
-      {/* 底部浮动操作栏 */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-lg">
+      {/* 底部操作栏 */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-full"
             >
               <Camera className="w-5 h-5" />
               <span className="text-sm font-medium">图片</span>
@@ -513,42 +456,27 @@ export default function NewPost() {
             
             <button
               onClick={() => setShowLocation(!showLocation)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full transition-colors ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-full ${
                 showLocation
-                  ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                  ? 'bg-green-100 text-green-700'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
               <MapPin className="w-5 h-5" />
               <span className="text-sm font-medium">位置</span>
-              {selectedLocation && (
-                <span className="text-xs bg-green-500 text-white rounded-full px-2 py-0.5">
-                  ✓
-                </span>
-              )}
             </button>
           </div>
           
           <button
             onClick={handleSubmit}
             disabled={loading || (!content.trim() && images.length === 0)}
-            className={`px-6 py-3 rounded-full font-medium flex items-center gap-2 transition-all ${
+            className={`px-6 py-2 rounded-full font-medium ${
               loading || (!content.trim() && images.length === 0)
                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:shadow-lg hover:scale-105 active:scale-95 shadow-md'
+                : 'bg-blue-500 text-white hover:bg-blue-600'
             }`}
           >
-            {loading ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span>发布中...</span>
-              </>
-            ) : (
-              <>
-                <Send className="w-5 h-5" />
-                <span className="font-semibold">发布动态</span>
-              </>
-            )}
+            {loading ? '发布中...' : '发布'}
           </button>
         </div>
       </div>
