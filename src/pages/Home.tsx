@@ -13,50 +13,41 @@ import {
   Compass, Radio, Podcast, Video, Youtube, Instagram, Twitter, 
   ExternalLink, AlertCircle, RefreshCw, Globe, Lightbulb, Heart as HeartIcon,
   Moon, Sunrise, Wind as WindIcon, Cloud, Droplets, ThermometerSun,
-  Sun as SunIcon, CloudSnow, CloudLightning
+  Sun as SunIcon, CloudSnow, CloudLightning, PlusCircle, Search, Home, User,  
+  Share2, MoreVertical,Camera, Send, Image as ImageIcon
 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import Layout from '../components/Layout'
 import DateTime from '../components/DateTime'
 import Weather from '../components/Weather'
 
-// Home.tsx 中的修复
-import { reverseGeocode } from '../utils/location' // 导入 reverseGeocode
+// 导入位置工具函数
+import { getGeolocation, saveLocationToStorage } from '../utils/location'
 
-// 在组件内部使用
-const getLocation = async () => { // 确保函数是 async 的
-  if (!navigator.geolocation) return
-  
-  try {
-    const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(resolve, reject, {
-        enableHighAccuracy: false,
-        timeout: 10000,
-        maximumAge: 300000
-      })
-    })
-    
-    const { latitude, longitude } = position.coords
-    const cityName = await reverseGeocode(latitude, longitude) // 现在可以正确调用
-    
-    // 存储位置到 localStorage（简化方案）
-    localStorage.setItem('sharedLocation', JSON.stringify({
-      lat: latitude,
-      lng: longitude,
-      name: cityName,
-      timestamp: Date.now()
-    }))
-    
-    // 如果有位置上下文，也设置到上下文
-    // setLastKnownLocation({ lat: latitude, lng: longitude, name: cityName, timestamp: Date.now() })
-  } catch (error) {
-    console.error('获取位置失败:', error)
-  }
-}
+export default function Home() {
+  const { user } = useAuth()
+  const [posts, setPosts] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [newPostContent, setNewPostContent] = useState('')
+  const [showPostForm, setShowPostForm] = useState(false)
 
-// 在 useEffect 中调用
-useEffect(() => {
-  getLocation()
-}, [])
+  // 初始化时获取位置
+  useEffect(() => {
+    const initializeLocation = async () => {
+      try {
+        const location = await getGeolocation()
+        if (location) {
+          // 保存位置到本地存储，供 NewPost.tsx 使用
+          saveLocationToStorage(location)
+          console.log('位置已获取并保存:', location)
+        }
+      } catch (error) {
+        console.error('初始化位置失败:', error)
+      }
+    }
+
+    initializeLocation()
+  }, [])
 
 // 每日格言数据
 const DAILY_QUOTES = [
