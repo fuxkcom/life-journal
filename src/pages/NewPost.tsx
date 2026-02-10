@@ -15,6 +15,25 @@ export default function NewPost() {
   const [previews, setPreviews] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // NewPost.tsx 的 useEffect 中
+useEffect(() => {
+  const storedLocation = localStorage.getItem('sharedLocation')
+  if (storedLocation) {
+    try {
+      const locationData = JSON.parse(storedLocation)
+      // 检查是否在1小时内（可调整）
+      if (Date.now() - locationData.timestamp < 60 * 60 * 1000) {
+        setSelectedLocation(locationData.name)
+        setLastLocationTime(locationData.timestamp)
+        setShowLocation(true)
+        setUsingCurrentLocation(true)
+      }
+    } catch (error) {
+      console.error('读取位置失败:', error)
+    }
+  }
+}, [])
   
   // 位置相关状态
   const [showLocation, setShowLocation] = useState(false)
