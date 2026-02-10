@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { ArrowLeft, Image, X, Send, Loader2, MapPin, MapPinOff, AlertCircle, Globe, Building2, Navigation } from 'lucide-react'
+import { ArrowLeft, Image, X, Send, Loader2, MapPin, MapPinOff, AlertCircle, Globe, Building2, Navigation, Settings } from 'lucide-react'
 
 export default function NewPost() {
   const { user } = useAuth()
@@ -19,15 +19,29 @@ export default function NewPost() {
   const [manualLocation, setManualLocation] = useState('')
   const [showManualInput, setShowManualInput] = useState(false)
   const [hasRequestedLocation, setHasRequestedLocation] = useState(false)
+  const [showPermissionHelp, setShowPermissionHelp] = useState(false)
 
-  // 只在组件加载时尝试获取位置
-  useEffect(() => {
-    // 不自动获取位置，等待用户交互
-  }, [])
+  // 检查地理位置权限状态
+  const checkPermissionStatus = async () => {
+    if (!('permissions' in navigator)) {
+      return null
+    }
+    
+    try {
+      const permissionStatus = await navigator.permissions.query({ 
+        name: 'geolocation' as PermissionName 
+      })
+      return permissionStatus.state
+    } catch (error) {
+      console.warn('检查权限状态失败:', error)
+      return null
+    }
+  }
 
   const getLocation = async () => {
     // 清除之前的错误
     setLocationError(null)
+    setShowPermissionHelp(false)
     
     if (!navigator.geolocation) {
       setLocationError('您的浏览器不支持地理位置功能')
@@ -39,15 +53,26 @@ export default function NewPost() {
     setHasRequestedLocation(true)
 
     try {
-      // 使用更简单的配置，确保能触发浏览器提示
+      // 检查当前权限状态
+      const permissionStatus = await checkPermissionStatus()
+      
+      // 如果权限已经被明确拒绝，直接显示错误并提示如何解决
+      if (permissionStatus === 'denied') {
+        setLocationError('位置权限已被拒绝')
+        setShowPermissionHelp(true)
+        setLoadingLocation(false)
+        return
+      }
+
+      // 尝试获取位置
       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(
           resolve,
           reject,
           {
-            enableHighAccuracy: false, // 使用false可能更容易触发
-            timeout: 15000, // 增加超时时间
-            maximumAge: 0 // 不使用缓存位置
+            enableHighAccuracy: false,
+            timeout: 10000,
+            maximumAge: 0
           }
         )
       })
@@ -66,11 +91,12 @@ export default function NewPost() {
     } catch (error: any) {
       console.error('获取位置失败:', error)
       
-      // 根据错误类型设置友好的错误消息
+      // 根据错误类型设置错误消息
       let errorMessage = '获取位置失败'
       
       if (error.code === error.PERMISSION_DENIED) {
         errorMessage = '位置权限被拒绝'
+        setShowPermissionHelp(true)
       } else if (error.code === error.POSITION_UNAVAILABLE) {
         errorMessage = '位置信息不可用'
       } else if (error.code === error.TIMEOUT) {
@@ -90,9 +116,61 @@ export default function NewPost() {
     }
   }
 
-  // 获取位置按钮点击处理
-  const handleGetLocationClick = () => {
-    getLocation()
+  // 使用watchPosition方法尝试重新请求权限（在某些浏览器中可能有效）
+  const tryReRequestPermission = () => {
+    if (!navigator.geolocation) return
+    
+    let watchId: number | null = null
+    
+    try {
+      // 使用watchPosition可能会触发权限请求
+      watchId = navigator.geolocation.watchPosition(
+        () => {
+          // 如果成功，立即清除监听并重新获取位置
+          if (watchId !== null) {
+            navigator.geolocation.clearWatch(watchId)
+          }
+          getLocation()
+        },
+        (error) => {
+          // 如果失败，清除监听并显示错误
+          if (watchId !== null) {
+            navigator.geolocation.clearWatch(watchId)
+          }
+          if (error.code === error.PERMISSION_DENIED) {
+            setLocationError('位置权限仍然被拒绝')
+            setShowPermissionHelp(true)
+          }
+        },
+        {
+          enableHighAccuracy: false,
+          timeout: 5000,
+          maximumAge: 0
+        }
+      )
+      
+      // 5秒后自动清除监听
+      setTimeout(() => {
+        if (watchId !== null) {
+          navigator.geolocation.clearWatch(watchId)
+        }
+      }, 5000)
+    } catch (error) {
+      console.error('尝试重新请求权限失败:', error)
+    }
+  }
+
+  // 引导用户打开浏览器设置
+  const guideToBrowserSettings = () => {
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+    
+    if (isMobile) {
+      // 移动设备提示
+      alert('请在手机设置中重新启用位置权限：\n1. 打开手机设置\n2. 找到"应用管理"或"应用权限"\n3. 找到您的浏览器应用\n4. 打开"位置"权限\n\n完成后请返回此页面刷新重试。')
+    } else {
+      // 桌面浏览器提示
+      alert('请在浏览器设置中重新启用位置权限：\n1. 点击浏览器地址栏左侧的锁图标(🔒)或信息图标(i)\n2. 找到"位置"设置\n3. 选择"允许"或清除之前的阻止设置\n\n完成后请刷新页面重试。')
+    }
   }
 
   const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
@@ -153,12 +231,6 @@ export default function NewPost() {
     }
     
     return closestCity
-  }
-
-  // 重新尝试获取位置
-  const retryGetLocation = () => {
-    setLocationError(null)
-    getLocation()
   }
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -323,7 +395,6 @@ export default function NewPost() {
                     setShowManualInput(false)
                   } else {
                     setShowLocation(true)
-                    // 如果之前没有获取过位置，不自动获取
                   }
                 }}
                 className={`px-3 py-1 text-sm rounded-full transition-colors ${
@@ -343,7 +414,9 @@ export default function NewPost() {
                   <div className="flex items-center justify-center gap-2 py-3 text-gray-500">
                     <Loader2 className="w-4 h-4 animate-spin" />
                     <span>正在获取您的位置...</span>
-                    <p className="text-xs text-gray-400 mt-2">如果浏览器没有弹出权限请求，请检查浏览器设置</p>
+                    <p className="text-xs text-gray-400 mt-2 w-full text-center">
+                      请等待浏览器弹出位置权限请求
+                    </p>
                   </div>
                 ) : location && !locationError ? (
                   <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
@@ -362,7 +435,7 @@ export default function NewPost() {
                         修改
                       </button>
                       <button
-                        onClick={retryGetLocation}
+                        onClick={getLocation}
                         className="p-1 text-gray-400 hover:text-gray-600"
                         title="刷新位置"
                       >
@@ -374,27 +447,77 @@ export default function NewPost() {
 
                 {/* 错误提示 */}
                 {locationError && hasRequestedLocation && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <div className="flex items-start gap-3">
-                      <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-red-800 mb-2">
-                          获取位置失败
-                        </p>
-                        <p className="text-sm text-red-700 mb-3">{locationError}</p>
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            onClick={retryGetLocation}
-                            className="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-sm hover:bg-red-200"
-                          >
-                            重新获取位置
-                          </button>
-                          <button
-                            onClick={() => setShowManualInput(true)}
-                            className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200"
-                          >
-                            手动输入位置
-                          </button>
+                  <div className="space-y-3">
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <div className="flex items-start gap-3">
+                        <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-red-800 mb-2">
+                            获取位置失败
+                          </p>
+                          <p className="text-sm text-red-700 mb-3">{locationError}</p>
+                          
+                          {showPermissionHelp ? (
+                            <div className="space-y-3">
+                              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                                <p className="text-sm text-amber-800 mb-2">
+                                  <strong>为什么没有弹出权限请求？</strong>
+                                </p>
+                                <p className="text-xs text-amber-700 mb-2">
+                                  您之前可能已经拒绝了位置权限，浏览器会记住您的选择，不会再次自动弹出请求。
+                                </p>
+                                <div className="flex flex-wrap gap-2 mt-3">
+                                  <button
+                                    onClick={tryReRequestPermission}
+                                    className="px-3 py-1.5 bg-amber-100 text-amber-700 rounded-lg text-sm hover:bg-amber-200 flex items-center gap-2"
+                                  >
+                                    <Settings className="w-3 h-3" />
+                                    尝试重新请求权限
+                                  </button>
+                                  <button
+                                    onClick={guideToBrowserSettings}
+                                    className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-sm hover:bg-blue-200 flex items-center gap-2"
+                                  >
+                                    <Settings className="w-3 h-3" />
+                                    打开浏览器设置指南
+                                  </button>
+                                </div>
+                              </div>
+                              
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                <button
+                                  onClick={() => setShowManualInput(true)}
+                                  className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200"
+                                >
+                                  手动输入位置
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setShowLocation(false)
+                                    setShowManualInput(false)
+                                  }}
+                                  className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200"
+                                >
+                                  不显示位置
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                onClick={getLocation}
+                                className="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-sm hover:bg-red-200"
+                              >
+                                重新获取位置
+                              </button>
+                              <button
+                                onClick={() => setShowManualInput(true)}
+                                className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200"
+                              >
+                                手动输入位置
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -466,14 +589,14 @@ export default function NewPost() {
                 {!location && !showManualInput && !loadingLocation && (!hasRequestedLocation || !locationError) && (
                   <div className="space-y-2">
                     <button
-                      onClick={handleGetLocationClick}
+                      onClick={getLocation}
                       className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium"
                     >
                       <MapPin className="w-5 h-5" />
                       <span>获取当前位置</span>
                     </button>
                     <p className="text-xs text-gray-500 text-center">
-                      点击获取位置后，浏览器会询问位置权限
+                      点击获取位置，浏览器会询问位置权限
                     </p>
                   </div>
                 )}
