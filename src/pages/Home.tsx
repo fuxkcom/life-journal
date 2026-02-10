@@ -20,7 +20,6 @@ import DateTime from '../components/DateTime'
 import Weather from '../components/Weather'
 
 // Home.tsx 中的修复
-import { useEffect } from 'react' // 确保导入 useEffect
 import { reverseGeocode } from '../utils/location' // 导入 reverseGeocode
 
 // 在组件内部使用
