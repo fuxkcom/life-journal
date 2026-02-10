@@ -19,6 +19,20 @@ import Layout from '../components/Layout'
 import DateTime from '../components/DateTime'
 import Weather from '../components/Weather'
 
+// Home.tsx 中，获取位置成功后
+const successCallback = (position: GeolocationPosition) => {
+  const { latitude, longitude } = position.coords
+  const cityName = await reverseGeocode(latitude, longitude)
+  
+  // 存储到 localStorage
+  localStorage.setItem('sharedLocation', JSON.stringify({
+    lat: latitude,
+    lng: longitude,
+    name: cityName,
+    timestamp: Date.now()
+  }))
+}
+
 // 每日格言数据
 const DAILY_QUOTES = [
   { text: "生活不是等待风暴过去，而是学会在雨中跳舞。", author: "维维安·格林" },
