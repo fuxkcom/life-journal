@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { ArrowLeft, Image, X, Send, Loader2, MapPin, MapPinOff, AlertCircle, Globe, Building2, Navigation, Shield } from 'lucide-react'
+import { ArrowLeft, Image, X, Send, Loader2, MapPin, MapPinOff, AlertCircle, Globe, Building2, Navigation, RefreshCw } from 'lucide-react'
 
 export default function NewPost() {
   const { user } = useAuth()
@@ -19,42 +19,17 @@ export default function NewPost() {
   const [manualLocation, setManualLocation] = useState('')
   const [showManualInput, setShowManualInput] = useState(false)
   const [hasRequestedLocation, setHasRequestedLocation] = useState(false)
-  const [isSecureOrigin, setIsSecureOrigin] = useState(true)
 
-  // 检查是否是安全来源
-  useEffect(() => {
-    const checkSecureOrigin = () => {
-      const isLocalhost = window.location.hostname === 'localhost' || 
-                          window.location.hostname === '127.0.0.1' || 
-                          window.location.hostname === '::1'
-      
-      const isHttps = window.location.protocol === 'https:'
-      
-      // 当前环境是否是安全来源
-      const secure = isHttps || isLocalhost
-      setIsSecureOrigin(secure)
-      
-      if (!secure) {
-        setLocationError('地理位置API需要安全的连接（HTTPS）。请使用HTTPS访问此网站，或在localhost上运行。')
-        setShowManualInput(true)
-      }
-    }
-    
-    checkSecureOrigin()
-  }, [])
+  // 检查地理位置是否可用
+  const checkGeolocationAvailable = () => {
+    return 'geolocation' in navigator
+  }
 
   const getLocation = async () => {
     // 清除之前的错误
     setLocationError(null)
     
-    // 检查是否是安全来源
-    if (!isSecureOrigin) {
-      setLocationError('地理位置API需要安全的连接（HTTPS）。请使用HTTPS访问此网站。')
-      setShowManualInput(true)
-      return
-    }
-    
-    if (!navigator.geolocation) {
+    if (!checkGeolocationAvailable()) {
       setLocationError('您的浏览器不支持地理位置功能')
       setShowManualInput(true)
       return
@@ -64,15 +39,16 @@ export default function NewPost() {
     setHasRequestedLocation(true)
 
     try {
-      // 尝试获取位置
+      // 使用与Home.tsx相同的方法获取位置
+      // 方法1：使用更宽松的设置
       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(
           resolve,
           reject,
           {
-            enableHighAccuracy: false,
-            timeout: 30000,
-            maximumAge: 300000
+            enableHighAccuracy: false, // Home.tsx可能使用false
+            timeout: 30000, // 增加超时时间到30秒
+            maximumAge: 300000 // 使用5分钟内的缓存位置
           }
         )
       })
@@ -106,11 +82,6 @@ export default function NewPost() {
         errorMessage = error.message
       }
       
-      // 检查是否是不安全来源的错误
-      if (error.message && error.message.includes('insecure origin')) {
-        errorMessage = '地理位置API需要安全的连接（HTTPS）。请使用HTTPS访问此网站。'
-      }
-      
       setLocationError(errorMessage)
       
       // 如果获取失败，自动显示手动输入选项
@@ -122,22 +93,58 @@ export default function NewPost() {
     }
   }
 
-  // 开发环境使用HTTPS的指南
-  const showHttpsGuide = () => {
-    alert(
-      '在开发环境中启用HTTPS：\n\n' +
-      '使用Create React App时：\n' +
-      '1. 创建SSL证书：\n' +
-      '   mkdir -p .cert\n' +
-      '   openssl req -x509 -newkey rsa:2048 -keyout .cert/key.pem -out .cert/cert.pem -days 365 -nodes\n\n' +
-      '2. 在package.json中添加：\n' +
-      '   "scripts": {\n' +
-      '     "start": "HTTPS=true SSL_CRT_FILE=.cert/cert.pem SSL_KEY_FILE=.cert/key.pem react-scripts start"\n' +
-      '   }\n\n' +
-      '3. 重新启动：npm start\n\n' +
-      '或者直接使用：\n' +
-      'HTTPS=true npm start'
-    )
+  // 调试位置获取问题
+  const debugLocationIssue = () => {
+    console.log('Geolocation API available:', 'geolocation' in navigator)
+    
+    if ('geolocation' in navigator) {
+      console.log('Trying to get current position...')
+      
+      // 尝试一个简单的测试
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          console.log('Debug - Success:', position.coords)
+          alert('位置获取成功！坐标: ' + 
+            position.coords.latitude + ', ' + 
+            position.coords.longitude)
+        },
+        (error) => {
+          console.log('Debug - Error code:', error.code)
+          console.log('Debug - Error message:', error.message)
+          
+          let debugMessage = '错误代码: ' + error.code + '\n'
+          debugMessage += '错误信息: ' + error.message + '\n\n'
+          
+          switch(error.code) {
+            case error.PERMISSION_DENIED:
+              debugMessage += '权限被拒绝。请检查：\n'
+              debugMessage += '1. 浏览器是否已经阻止了位置权限\n'
+              debugMessage += '2. 系统位置服务是否开启\n'
+              debugMessage += '3. 是否在其他页面已经拒绝过权限'
+              break
+            case error.POSITION_UNAVAILABLE:
+              debugMessage += '位置信息不可用。请检查：\n'
+              debugMessage += '1. 设备是否支持GPS\n'
+              debugMessage += '2. 是否在室内或信号差的地方'
+              break
+            case error.TIMEOUT:
+              debugMessage += '请求超时。请检查：\n'
+              debugMessage += '1. 网络连接\n'
+              debugMessage += '2. GPS信号'
+              break
+          }
+          
+          alert(debugMessage)
+        },
+        {
+          enableHighAccuracy: false,
+          timeout: 5000,
+          maximumAge: 0
+        }
+      )
+    } else {
+      alert('浏览器不支持地理位置功能')
+    }
   }
 
   const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
@@ -376,42 +383,14 @@ export default function NewPost() {
 
             {showLocation && (
               <div className="space-y-3">
-                {/* 安全来源警告 */}
-                {!isSecureOrigin && (
-                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                    <div className="flex items-start gap-3">
-                      <Shield className="w-5 h-5 text-amber-600 mt-0.5" />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-amber-800 mb-1">
-                          安全警告
-                        </p>
-                        <p className="text-sm text-amber-700 mb-2">
-                          您正在通过不安全的连接（HTTP）访问此网站。现代浏览器已禁止在不安全连接中使用地理位置API。
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            onClick={showHttpsGuide}
-                            className="px-3 py-1.5 bg-amber-100 text-amber-700 rounded-lg text-sm hover:bg-amber-200"
-                          >
-                            如何启用HTTPS
-                          </button>
-                          <button
-                            onClick={() => window.open('https://developer.mozilla.org/zh-CN/docs/Web/Security/Secure_Contexts', '_blank')}
-                            className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-sm hover:bg-blue-200"
-                          >
-                            了解更多
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
                 {/* 自动获取的位置 */}
                 {loadingLocation ? (
                   <div className="flex items-center justify-center gap-2 py-3 text-gray-500">
                     <Loader2 className="w-4 h-4 animate-spin" />
                     <span>正在获取您的位置...</span>
+                    <p className="text-xs text-gray-400 mt-2 w-full text-center">
+                      请等待浏览器弹出位置权限请求
+                    </p>
                   </div>
                 ) : location && !locationError ? (
                   <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
@@ -434,7 +413,7 @@ export default function NewPost() {
                         className="p-1 text-gray-400 hover:text-gray-600"
                         title="刷新位置"
                       >
-                        <Navigation className="w-4 h-4" />
+                        <RefreshCw className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
@@ -450,33 +429,13 @@ export default function NewPost() {
                           获取位置失败
                         </p>
                         <p className="text-sm text-red-700 mb-3">{locationError}</p>
-                        
-                        {locationError.includes('HTTPS') ? (
-                          <div className="space-y-2">
-                            <p className="text-xs text-red-600">
-                              解决方案：
-                            </p>
-                            <div className="flex flex-wrap gap-2">
-                              <button
-                                onClick={() => window.location.href = window.location.href.replace('http://', 'https://')}
-                                className="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-sm hover:bg-green-200"
-                              >
-                                尝试使用HTTPS
-                              </button>
-                              <button
-                                onClick={() => setShowManualInput(true)}
-                                className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200"
-                              >
-                                手动输入位置
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
+                        <div className="space-y-2">
                           <div className="flex flex-wrap gap-2">
                             <button
                               onClick={getLocation}
-                              className="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-sm hover:bg-red-200"
+                              className="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-sm hover:bg-red-200 flex items-center gap-2"
                             >
+                              <Navigation className="w-3 h-3" />
                               重新获取位置
                             </button>
                             <button
@@ -486,7 +445,15 @@ export default function NewPost() {
                               手动输入位置
                             </button>
                           </div>
-                        )}
+                          <div className="pt-2 border-t border-red-200">
+                            <button
+                              onClick={debugLocationIssue}
+                              className="text-xs text-red-600 hover:text-red-800 underline"
+                            >
+                              调试位置获取问题
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -554,7 +521,7 @@ export default function NewPost() {
                 )}
 
                 {/* 获取位置按钮（当没有位置且没有手动输入时显示） */}
-                {!location && !showManualInput && !loadingLocation && (!hasRequestedLocation || !locationError) && isSecureOrigin && (
+                {!location && !showManualInput && !loadingLocation && (!hasRequestedLocation || !locationError) && (
                   <div className="space-y-2">
                     <button
                       onClick={getLocation}
