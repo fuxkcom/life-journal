@@ -19,19 +19,45 @@ import Layout from '../components/Layout'
 import DateTime from '../components/DateTime'
 import Weather from '../components/Weather'
 
-// Home.tsx 中，获取位置成功后
-const successCallback = (position: GeolocationPosition) => {
-  const { latitude, longitude } = position.coords
-  const cityName = await reverseGeocode(latitude, longitude)
+// Home.tsx 中的修复
+import { useEffect } from 'react' // 确保导入 useEffect
+import { reverseGeocode } from '../utils/location' // 导入 reverseGeocode
+
+// 在组件内部使用
+const getLocation = async () => { // 确保函数是 async 的
+  if (!navigator.geolocation) return
   
-  // 存储到 localStorage
-  localStorage.setItem('sharedLocation', JSON.stringify({
-    lat: latitude,
-    lng: longitude,
-    name: cityName,
-    timestamp: Date.now()
-  }))
+  try {
+    const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: false,
+        timeout: 10000,
+        maximumAge: 300000
+      })
+    })
+    
+    const { latitude, longitude } = position.coords
+    const cityName = await reverseGeocode(latitude, longitude) // 现在可以正确调用
+    
+    // 存储位置到 localStorage（简化方案）
+    localStorage.setItem('sharedLocation', JSON.stringify({
+      lat: latitude,
+      lng: longitude,
+      name: cityName,
+      timestamp: Date.now()
+    }))
+    
+    // 如果有位置上下文，也设置到上下文
+    // setLastKnownLocation({ lat: latitude, lng: longitude, name: cityName, timestamp: Date.now() })
+  } catch (error) {
+    console.error('获取位置失败:', error)
+  }
 }
+
+// 在 useEffect 中调用
+useEffect(() => {
+  getLocation()
+}, [])
 
 // 每日格言数据
 const DAILY_QUOTES = [
