@@ -47,7 +47,7 @@ export default function Home() {
     }
 
     initializeLocation()
-  }, [])
+  }, [])}
 
 // 每日格言数据
 const DAILY_QUOTES = [
