@@ -14,7 +14,7 @@ import {
   ExternalLink, AlertCircle, RefreshCw, Globe, Lightbulb, Heart as HeartIcon,
   Moon, Sunrise, Wind as WindIcon, Cloud, Droplets, ThermometerSun,
   Sun as SunIcon, CloudSnow, CloudLightning, PlusCircle, Search, Home, User,  
-  Share2, MoreVertical,Camera, Send, Image as ImageIcon
+  Share2, MoreVertical, Camera
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import Layout from '../components/Layout'
@@ -23,31 +23,6 @@ import Weather from '../components/Weather'
 
 // 导入位置工具函数
 import { getGeolocation, saveLocationToStorage } from '../utils/location'
-
-export default function Home() {
-  const { user } = useAuth()
-  const [posts, setPosts] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [newPostContent, setNewPostContent] = useState('')
-  const [showPostForm, setShowPostForm] = useState(false)
-
-  // 初始化时获取位置
-  useEffect(() => {
-    const initializeLocation = async () => {
-      try {
-        const location = await getGeolocation()
-        if (location) {
-          // 保存位置到本地存储，供 NewPost.tsx 使用
-          saveLocationToStorage(location)
-          console.log('位置已获取并保存:', location)
-        }
-      } catch (error) {
-        console.error('初始化位置失败:', error)
-      }
-    }
-
-    initializeLocation()
-  }, [])}
 
 // 每日格言数据
 const DAILY_QUOTES = [
@@ -71,6 +46,50 @@ const MOOD_CONFIG = {
   sad: { icon: Frown, label: '难过', color: 'text-blue-500', bg: 'bg-blue-50', border: 'border-blue-200' },
   angry: { icon: Angry, label: '生气', color: 'text-red-500', bg: 'bg-red-50', border: 'border-red-200' },
 }
+
+// 中文趣味知识库
+const CHINESE_FUN_FACTS = [
+  "熊猫的消化系统很短，所以它们需要不停地吃竹子来维持能量。",
+  "人的一生中，平均会花6个月的时间等红灯。",
+  "蜜蜂的翅膀每分钟可以拍动200次。",
+  "人的鼻子可以记住5万种不同的气味。",
+  "香蕉是浆果，但草莓不是。",
+  "闪电的温度比太阳表面高5倍。",
+  "章鱼有三颗心脏，两颗负责将血液输送到鳃，一颗负责输送到身体其他部位。",
+  "人类是唯一会脸红的动物。",
+  "你无法同时呼吸和吞咽。",
+  "蜂蜜是唯一永远不会变质的食物。",
+]
+
+// 中文笑话库
+const CHINESE_JOKES = [
+  "为什么程序员喜欢黑暗模式？因为光线会吸引bug！",
+  "小明对电脑说：我需要休息。现在每次开机电脑都问：你确定吗？",
+  "为什么数学书很伤心？因为它有太多问题。",
+  "今天问Siri：生命的意义是什么？它说：我找到了一些网页，有些可能需要付费。",
+  "为什么科学家不信任原子？因为它们构成了一切！",
+]
+
+// 模拟中文新闻数据
+const mockChineseNews = [
+  { 
+    id: 1, 
+    title: 'AI技术新突破，能更准确理解中文语境', 
+    category: 'technology', 
+    time: '2小时前', 
+    source: '科技日报',
+    url: 'https://www.ithome.com/',
+    isHot: true 
+  },
+  { 
+    id: 2, 
+    title: '研究发现：每天散步30分钟可显著提升幸福感', 
+    category: 'health', 
+    time: '4小时前', 
+    source: '健康时报',
+    url: 'https://www.jksb.com.cn/'
+  },
+]
 
 // 帖子图片画廊组件
 const PostImageGallery = ({ 
@@ -383,103 +402,6 @@ export default function Home() {
     return DAILY_QUOTES[dayOfYear % DAILY_QUOTES.length]
   }, [])
 
-  // 中文趣味知识库
-  const CHINESE_FUN_FACTS = [
-    "熊猫的消化系统很短，所以它们需要不停地吃竹子来维持能量。",
-    "人的一生中，平均会花6个月的时间等红灯。",
-    "蜜蜂的翅膀每分钟可以拍动200次。",
-    "人的鼻子可以记住5万种不同的气味。",
-    "香蕉是浆果，但草莓不是。",
-    "闪电的温度比太阳表面高5倍。",
-    "章鱼有三颗心脏，两颗负责将血液输送到鳃，一颗负责输送到身体其他部位。",
-    "人类是唯一会脸红的动物。",
-    "你无法同时呼吸和吞咽。",
-    "蜂蜜是唯一永远不会变质的食物。",
-    "人的眼睛可以分辨约1000万种不同的颜色。",
-    "打喷嚏时，心脏会暂停跳动约1毫秒。",
-    "人的一生中，皮肤会完全更换约900次。",
-    "猫的呼噜声频率有助于骨骼愈合。",
-    "企鹅的膝盖藏在羽毛里面，所以它们看起来腿很短。",
-    "长颈鹿的舌头有50厘米长，可以清洁自己的耳朵。",
-    "海豚睡觉时只有一半大脑在休息，另一半保持清醒以防危险。",
-    "蚂蚁永远不会睡觉，但它们每天会打两次盹，每次约8分钟。",
-    "大象是唯一不会跳跃的哺乳动物。",
-    "考拉每天要睡18-22小时，是世界上最能睡的动物。"
-  ]
-
-  // 中文笑话库
-  const CHINESE_JOKES = [
-    "为什么程序员喜欢黑暗模式？因为光线会吸引bug！",
-    "小明对电脑说：我需要休息。现在每次开机电脑都问：你确定吗？",
-    "为什么数学书很伤心？因为它有太多问题。",
-    "今天问Siri：生命的意义是什么？它说：我找到了一些网页，有些可能需要付费。",
-    "为什么科学家不信任原子？因为它们构成了一切！",
-    "键盘上最帅的键是哪个？F4，因为F4=帅！",
-    "为什么电脑永远不会感冒？因为它有Windows（窗户）！",
-    "什么车最不容易超速？救护车，因为救人要紧（紧）！",
-    "为什么篮球很容易离婚？因为它有外遇（外投）！",
-    "什么动物最了解天气？海豹，因为它知道什么时候下雨（海豹预报）！",
-    "为什么飞机不会迷路？因为它有GPS（鸡皮S）！",
-    "什么水果最怕冷？梨，因为梨（离）开了温暖就会冻梨（动力）！",
-    "为什么蜘蛛总是在网上？因为它要上网！",
-    "什么书最有味道？菜谱，因为里面有盐（言）有味！",
-    "为什么月亮不听话？因为它总是阴晴圆缺（阴晴圆缺）！"
-  ]
-
-  // 模拟中文新闻数据
-  const mockChineseNews = [
-    { 
-      id: 1, 
-      title: 'AI技术新突破，能更准确理解中文语境', 
-      category: 'technology', 
-      time: '2小时前', 
-      source: '科技日报',
-      url: 'https://www.ithome.com/',
-      isHot: true 
-    },
-    { 
-      id: 2, 
-      title: '研究发现：每天散步30分钟可显著提升幸福感', 
-      category: 'health', 
-      time: '4小时前', 
-      source: '健康时报',
-      url: 'https://www.jksb.com.cn/'
-    },
-    { 
-      id: 3, 
-      title: '最新电影评分出炉，这部国产片获9.2高分', 
-      category: 'entertainment', 
-      time: '6小时前', 
-      source: '影迷网',
-      url: 'https://movie.douban.com/'
-    },
-    { 
-      id: 4, 
-      title: '电竞亚洲杯落幕，中国战队勇夺冠军', 
-      category: 'sports', 
-      time: '8小时前', 
-      source: '电竞在线',
-      url: 'https://www.3dmgame.com/',
-      isHot: true 
-    },
-    { 
-      id: 5, 
-      title: '气象局发布寒潮预警，周末气温骤降10度', 
-      category: 'general', 
-      time: '1小时前', 
-      source: '中国天气网',
-      url: 'http://www.weather.com.cn/'
-    },
-    { 
-      id: 6, 
-      title: '新能源汽车销量创新高，市场占有率突破30%', 
-      category: 'finance', 
-      time: '3小时前', 
-      source: '财经网',
-      url: 'https://www.caijing.com.cn/'
-    },
-  ]
-
   // 修改后的 loadAllData 函数 - 支持静默模式
   const loadAllData = async (silent = false) => {
     if (!silent) {
@@ -566,6 +488,24 @@ export default function Home() {
     
     return false;
   };
+
+  // 初始化时获取位置
+  useEffect(() => {
+    const initializeLocation = async () => {
+      try {
+        const location = await getGeolocation()
+        if (location) {
+          // 保存位置到本地存储，供 NewPost.tsx 使用
+          saveLocationToStorage(location)
+          console.log('位置已获取并保存:', location)
+        }
+      } catch (error) {
+        console.error('初始化位置失败:', error)
+      }
+    }
+
+    initializeLocation()
+  }, [])
 
   // 初始化加载所有数据 - 修改后的版本
   useEffect(() => {
