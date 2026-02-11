@@ -13,7 +13,7 @@ import {
   Compass, Radio, Podcast, Video, Youtube, Instagram, Twitter, 
   ExternalLink, AlertCircle, RefreshCw, Globe, Lightbulb, Heart as HeartIcon,
   Moon, Sunrise, Wind as WindIcon, Cloud, Droplets, ThermometerSun,
-  Sun as SunIcon, CloudSnow, CloudLightning, PlusCircle, Search, Home, User,  
+  Sun as SunIcon, CloudSnow, CloudLightning, PlusCircle, Search, User,  
   Share2, MoreVertical, Camera
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
