@@ -28,7 +28,10 @@ const defaultCities = [
   { name: '广州', lat: 23.1291, lon: 113.2644 },
 ]
 
-// 备选：根据经纬度粗略判断城市（仅覆盖部分城市，作为反向地理编码失败时的后备）
+// 请替换为你的高德地图 API 密钥（申请地址：https://lbs.amap.com/）
+const GAODE_MAP_API_KEY = '81cd5bfa7b57ca86f83b185463b7a4b4'
+
+// 后备方案：根据经纬度粗略判断城市（当高德 API 失败时使用）
 const getCityByCoords = (lat: number, lon: number): string => {
   if (lat >= 22.4 && lat <= 22.8 && lon >= 113.7 && lon <= 114.6) return '深圳'
   if (lat >= 22.9 && lat <= 23.4 && lon >= 113.0 && lon <= 113.7) return '广州'
@@ -48,25 +51,28 @@ const getCityByCoords = (lat: number, lon: number): string => {
   return '当前位置'
 }
 
-// 反向地理编码：根据经纬度获取真实城市名（使用OpenStreetMap Nominatim，注意使用政策）
-const reverseGeocode = async (lat: number, lon: number): Promise<string> => {
+// 使用高德地图逆地理编码 API 获取城市名
+const reverseGeocodeWithGaode = async (lat: number, lon: number): Promise<string> => {
   try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`,
-      {
-        headers: {
-          // 请替换为你的应用名称和联系方式（必须设置，否则可能被限流）
-          'User-Agent': 'MyWeatherApp/1.0 (your-email@example.com)'
-        }
-      }
-    )
-    if (!res.ok) throw new Error('Reverse geocoding failed')
-    const data = await res.json()
-    const addr = data.address
-    // 优先返回城市名，如果没有则返回乡镇/县名
-    return addr.city || addr.town || addr.village || addr.county || '当前位置'
-  } catch {
-    // 失败时回退到硬编码范围判断
+    // 高德逆地理编码 API：设置 coordsys=gps 以直接传入 WGS84 坐标（浏览器获取的坐标）
+    const url = `https://restapi.amap.com/v3/geocode/regeo?output=json&location=${lon},${lat}&key=${GAODE_MAP_API_KEY}&radius=1000&extensions=all&coordsys=gps`
+
+    const response = await fetch(url)
+    if (!response.ok) throw new Error('Gaode API request failed')
+
+    const data = await response.json()
+    if (data.status !== '1' || !data.regeocode) {
+      throw new Error(`Gaode API error: ${data.info || '未知错误'}`)
+    }
+
+    // 提取城市信息：优先使用 addressComponent.city，如果没有则使用 province
+    const addressComponent = data.regeocode.addressComponent
+    const city = addressComponent?.city || addressComponent?.province || ''
+    
+    // 如果城市为空，返回后备判断结果
+    return city || getCityByCoords(lat, lon)
+  } catch (error) {
+    console.warn('高德逆地理编码失败，回退到坐标匹配', error)
     return getCityByCoords(lat, lon)
   }
 }
@@ -97,7 +103,8 @@ export default function Weather() {
         else if (code <= 79) { condition = '雪'; icon = 'snow' }
         else if (code <= 99) { condition = '雷雨'; icon = 'thunderstorm' }
 
-        const city = cityName || await reverseGeocode(lat, lon)
+        // 如果没有传入城市名，则通过高德 API 获取
+        const city = cityName || await reverseGeocodeWithGaode(lat, lon)
         setWeather({ temp, condition, city, icon })
         setError(false)
       } catch {
@@ -113,10 +120,10 @@ export default function Weather() {
         navigator.geolocation.getCurrentPosition(
           async (position) => {
             const { latitude, longitude } = position.coords
-            await fetchWeather(latitude, longitude) // 定位成功，不再自动回退到默认城市
+            await fetchWeather(latitude, longitude)
           },
           async () => {
-            // 定位失败时尝试使用默认城市（如深圳）
+            // 定位失败时使用默认城市（如深圳），并添加标记
             const defaultCity = defaultCities[0]
             await fetchWeather(defaultCity.lat, defaultCity.lon, defaultCity.name + '（默认）')
           },
