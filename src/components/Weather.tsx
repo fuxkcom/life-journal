@@ -28,69 +28,47 @@ const defaultCities = [
   { name: '广州', lat: 23.1291, lon: 113.2644 },
 ]
 
-// 根据经纬度判断城市
+// 备选：根据经纬度粗略判断城市（仅覆盖部分城市，作为反向地理编码失败时的后备）
 const getCityByCoords = (lat: number, lon: number): string => {
-  // 深圳区域: 纬度 22.4-22.8, 经度 113.7-114.6
-  if (lat >= 22.4 && lat <= 22.8 && lon >= 113.7 && lon <= 114.6) {
-    return '深圳'
-  }
-  // 广州区域: 纬度 22.9-23.4, 经度 113.0-113.7
-  if (lat >= 22.9 && lat <= 23.4 && lon >= 113.0 && lon <= 113.7) {
-    return '广州'
-  }
-  // 上海区域: 纬度 30.7-31.5, 经度 121.0-122.0
-  if (lat >= 30.7 && lat <= 31.5 && lon >= 121.0 && lon <= 122.0) {
-    return '上海'
-  }
-  // 北京区域: 纬度 39.4-40.2, 经度 115.7-117.0
-  if (lat >= 39.4 && lat <= 40.2 && lon >= 115.7 && lon <= 117.0) {
-    return '北京'
-  }
-  // 杭州区域
-  if (lat >= 29.8 && lat <= 30.5 && lon >= 119.8 && lon <= 120.5) {
-    return '杭州'
-  }
-  // 成都区域
-  if (lat >= 30.4 && lat <= 31.0 && lon >= 103.5 && lon <= 104.5) {
-    return '成都'
-  }
-  // 武汉区域
-  if (lat >= 30.3 && lat <= 30.8 && lon >= 114.0 && lon <= 114.6) {
-    return '武汉'
-  }
-  // 南京区域
-  if (lat >= 31.8 && lat <= 32.3 && lon >= 118.5 && lon <= 119.2) {
-    return '南京'
-  }
-  // 西安区域
-  if (lat >= 33.9 && lat <= 34.5 && lon >= 108.7 && lon <= 109.3) {
-    return '西安'
-  }
-  // 重庆区域
-  if (lat >= 29.3 && lat <= 29.9 && lon >= 106.2 && lon <= 106.8) {
-    return '重庆'
-  }
-  // 天津区域
-  if (lat >= 38.8 && lat <= 39.5 && lon >= 116.8 && lon <= 117.8) {
-    return '天津'
-  }
-  // 苏州区域
-  if (lat >= 31.0 && lat <= 31.5 && lon >= 120.3 && lon <= 121.0) {
-    return '苏州'
-  }
-  // 东莞区域
-  if (lat >= 22.6 && lat <= 23.1 && lon >= 113.5 && lon <= 114.2) {
-    return '东莞'
-  }
-  // 佛山区域
-  if (lat >= 22.8 && lat <= 23.2 && lon >= 112.8 && lon <= 113.3) {
-    return '佛山'
-  }
-  // 珠海区域
-  if (lat >= 22.0 && lat <= 22.5 && lon >= 113.3 && lon <= 113.8) {
-    return '珠海'
-  }
+  if (lat >= 22.4 && lat <= 22.8 && lon >= 113.7 && lon <= 114.6) return '深圳'
+  if (lat >= 22.9 && lat <= 23.4 && lon >= 113.0 && lon <= 113.7) return '广州'
+  if (lat >= 30.7 && lat <= 31.5 && lon >= 121.0 && lon <= 122.0) return '上海'
+  if (lat >= 39.4 && lat <= 40.2 && lon >= 115.7 && lon <= 117.0) return '北京'
+  if (lat >= 29.8 && lat <= 30.5 && lon >= 119.8 && lon <= 120.5) return '杭州'
+  if (lat >= 30.4 && lat <= 31.0 && lon >= 103.5 && lon <= 104.5) return '成都'
+  if (lat >= 30.3 && lat <= 30.8 && lon >= 114.0 && lon <= 114.6) return '武汉'
+  if (lat >= 31.8 && lat <= 32.3 && lon >= 118.5 && lon <= 119.2) return '南京'
+  if (lat >= 33.9 && lat <= 34.5 && lon >= 108.7 && lon <= 109.3) return '西安'
+  if (lat >= 29.3 && lat <= 29.9 && lon >= 106.2 && lon <= 106.8) return '重庆'
+  if (lat >= 38.8 && lat <= 39.5 && lon >= 116.8 && lon <= 117.8) return '天津'
+  if (lat >= 31.0 && lat <= 31.5 && lon >= 120.3 && lon <= 121.0) return '苏州'
+  if (lat >= 22.6 && lat <= 23.1 && lon >= 113.5 && lon <= 114.2) return '东莞'
+  if (lat >= 22.8 && lat <= 23.2 && lon >= 112.8 && lon <= 113.3) return '佛山'
+  if (lat >= 22.0 && lat <= 22.5 && lon >= 113.3 && lon <= 113.8) return '珠海'
   return '当前位置'
+}
+
+// 反向地理编码：根据经纬度获取真实城市名（使用OpenStreetMap Nominatim，注意使用政策）
+const reverseGeocode = async (lat: number, lon: number): Promise<string> => {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`,
+      {
+        headers: {
+          // 请替换为你的应用名称和联系方式（必须设置，否则可能被限流）
+          'User-Agent': 'MyWeatherApp/1.0 (your-email@example.com)'
+        }
+      }
+    )
+    if (!res.ok) throw new Error('Reverse geocoding failed')
+    const data = await res.json()
+    const addr = data.address
+    // 优先返回城市名，如果没有则返回乡镇/县名
+    return addr.city || addr.town || addr.village || addr.county || '当前位置'
+  } catch {
+    // 失败时回退到硬编码范围判断
+    return getCityByCoords(lat, lon)
+  }
 }
 
 export default function Weather() {
@@ -101,18 +79,15 @@ export default function Weather() {
   useEffect(() => {
     const fetchWeather = async (lat: number, lon: number, cityName?: string) => {
       try {
-        // Using Open-Meteo API (free, no API key required, accessible in China)
         const res = await fetch(
           `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&timezone=auto`
         )
-        
         if (!res.ok) throw new Error('Weather API failed')
         
         const data = await res.json()
         const temp = Math.round(data.current.temperature_2m)
         const code = data.current.weather_code
-        
-        // WMO Weather interpretation codes
+
         let condition = '晴'
         let icon = 'sunny'
         if (code === 0) { condition = '晴'; icon = 'sunny' }
@@ -121,51 +96,41 @@ export default function Weather() {
         else if (code <= 69) { condition = '雨'; icon = 'rain' }
         else if (code <= 79) { condition = '雪'; icon = 'snow' }
         else if (code <= 99) { condition = '雷雨'; icon = 'thunderstorm' }
-        
-        // 使用传入的城市名或根据坐标判断城市
-        const city = cityName || getCityByCoords(lat, lon)
+
+        const city = cityName || await reverseGeocode(lat, lon)
         setWeather({ temp, condition, city, icon })
         setError(false)
       } catch {
-        // Try default city
-        if (!cityName) {
-          const defaultCity = defaultCities[0]
-          await fetchWeather(defaultCity.lat, defaultCity.lon, defaultCity.name)
-        } else {
-          setError(true)
-        }
+        setError(true)
+        setWeather(null)
       } finally {
         setLoading(false)
       }
     }
 
-    const getLocationAndWeather = () => {
+    const getLocationAndWeather = async () => {
       if ('geolocation' in navigator) {
         navigator.geolocation.getCurrentPosition(
-          (position) => {
+          async (position) => {
             const { latitude, longitude } = position.coords
-            fetchWeather(latitude, longitude)
+            await fetchWeather(latitude, longitude) // 定位成功，不再自动回退到默认城市
           },
-          () => {
-            // Use default city if geolocation fails (深圳 as default)
+          async () => {
+            // 定位失败时尝试使用默认城市（如深圳）
             const defaultCity = defaultCities[0]
-            fetchWeather(defaultCity.lat, defaultCity.lon, defaultCity.name)
+            await fetchWeather(defaultCity.lat, defaultCity.lon, defaultCity.name + '（默认）')
           },
-          { 
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 300000 // 5分钟缓存
-          }
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
         )
       } else {
+        // 浏览器不支持定位，使用默认城市
         const defaultCity = defaultCities[0]
-        fetchWeather(defaultCity.lat, defaultCity.lon, defaultCity.name)
+        await fetchWeather(defaultCity.lat, defaultCity.lon, defaultCity.name + '（默认）')
       }
     }
 
     getLocationAndWeather()
     
-    // Refresh weather every 30 minutes
     const interval = setInterval(getLocationAndWeather, 30 * 60 * 1000)
     return () => clearInterval(interval)
   }, [])
