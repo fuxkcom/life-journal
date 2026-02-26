@@ -13,7 +13,7 @@ import {
   getLocationFromStorage, 
   reverseGeocodeWithNominatim,
   getLocationByIP 
-} from '../utils/location'
+} from '../utils/location.ts'
 
 export default function NewPost() {
   const { user } = useAuth()
