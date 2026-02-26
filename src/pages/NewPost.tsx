@@ -5,11 +5,15 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { 
   ArrowLeft, Image, X, Send, Loader2, MapPin, MapPinOff, 
-  Globe, Building2, Camera, Users, Lock, Clock, HomeIcon
+  Globe, Building2, Camera, Users, Lock, Clock, HomeIcon, RefreshCw
 } from 'lucide-react'
 
 // 导入位置工具函数
-import { getLocationFromStorage } from '../utils/location'
+import { 
+  getLocationFromStorage, 
+  reverseGeocodeWithNominatim,
+  getLocationByIP 
+} from '../utils/location'
 
 export default function NewPost() {
   const { user } = useAuth()
@@ -28,6 +32,10 @@ export default function NewPost() {
   const [usingCurrentLocation, setUsingCurrentLocation] = useState(false)
   const [lastLocationTime, setLastLocationTime] = useState<number | null>(null)
   
+  // 定位过程状态
+  const [isLocating, setIsLocating] = useState(false)
+  const [locationError, setLocationError] = useState<string | null>(null)
+  
   // 隐私设置
   const [privacy, setPrivacy] = useState<'public' | 'friends' | 'private'>('friends')
 
@@ -43,15 +51,14 @@ export default function NewPost() {
     '西安', '重庆', '苏州', '天津', '厦门', '青岛', '长沙', '大连'
   ]
 
-  // 初始化位置信息
+  // 初始化位置信息（从 Home 保存的存储中读取）
   useEffect(() => {
-    // 从本地存储获取 Home.tsx 保存的位置
     const storedLocation = getLocationFromStorage()
     if (storedLocation) {
       setSelectedLocation(storedLocation.name)
       setLastLocationTime(storedLocation.timestamp)
       setUsingCurrentLocation(true)
-      setShowLocation(true)
+      // 不自动设置 showLocation，让用户点击位置按钮后再显示
     }
   }, [])
 
@@ -190,13 +197,61 @@ export default function NewPost() {
     return `${days}天前`
   }
 
+  // 刷新当前位置（定位）
+  const handleRefreshLocation = async () => {
+    setIsLocating(true)
+    setLocationError(null)
+
+    // 定位函数：先尝试浏览器定位，失败则 IP 定位
+    const getCoords = (): Promise<{ lat: number; lon: number }> => {
+      return new Promise((resolve, reject) => {
+        if ('geolocation' in navigator) {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude })
+            },
+            async (err) => {
+              console.warn('浏览器定位失败，尝试 IP 定位', err)
+              const ipLoc = await getLocationByIP()
+              if (ipLoc) {
+                resolve({ lat: ipLoc.lat, lon: ipLoc.lon })
+              } else {
+                reject(new Error('无法获取位置，请手动输入'))
+              }
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+          )
+        } else {
+          // 不支持定位，直接尝试 IP
+          getLocationByIP().then(ipLoc => {
+            if (ipLoc) resolve({ lat: ipLoc.lat, lon: ipLoc.lon })
+            else reject(new Error('浏览器不支持定位，请手动输入'))
+          })
+        }
+      })
+    }
+
+    try {
+      const { lat, lon } = await getCoords()
+      // 逆地理编码获取地点名称
+      const locationName = await reverseGeocodeWithNominatim(lat, lon)
+      setSelectedLocation(locationName)
+      setUsingCurrentLocation(true)
+      setLastLocationTime(Date.now())
+    } catch (error: any) {
+      setLocationError(error.message || '定位失败')
+    } finally {
+      setIsLocating(false)
+    }
+  }
+
   // 字符计数
   const charCount = content.length
   const maxChars = 1000
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* 顶部导航栏 */}
+      {/* 顶部导航栏 (不变) */}
       <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
         <div className="flex items-center justify-between px-4 py-3 max-w-3xl mx-auto">
           <button
@@ -234,7 +289,7 @@ export default function NewPost() {
       </header>
 
       <main className="pb-24 pt-4 px-4 max-w-3xl mx-auto">
-        {/* 内容编辑区 */}
+        {/* 内容编辑区 (不变) */}
         <div className="mb-6">
           <textarea
             value={content}
@@ -253,7 +308,7 @@ export default function NewPost() {
           </div>
         </div>
 
-        {/* 图片预览 */}
+        {/* 图片预览 (不变) */}
         {previews.length > 0 && (
           <div className="mb-6">
             <div className={`grid gap-3 ${previews.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
@@ -277,7 +332,7 @@ export default function NewPost() {
           </div>
         )}
 
-        {/* 位置选择器 */}
+        {/* 位置选择器 - 修改部分 */}
         {showLocation && (
           <div className="mb-6 bg-white rounded-xl border border-gray-300 p-4">
             <div className="flex items-center justify-between mb-4">
@@ -294,7 +349,7 @@ export default function NewPost() {
               </button>
             </div>
 
-            {/* 当前/最后已知位置 */}
+            {/* 当前/最后已知位置 - 增加刷新按钮 */}
             {(usingCurrentLocation && selectedLocation) && (
               <div className="mb-4 p-3 bg-blue-50 rounded-lg">
                 <div className="flex items-start justify-between">
@@ -312,7 +367,22 @@ export default function NewPost() {
                       </div>
                     )}
                   </div>
+                  <button
+                    onClick={handleRefreshLocation}
+                    disabled={isLocating}
+                    className="p-2 hover:bg-blue-100 rounded-full text-blue-600 disabled:opacity-50"
+                    title="刷新位置"
+                  >
+                    {isLocating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                  </button>
                 </div>
+              </div>
+            )}
+
+            {/* 定位错误提示 */}
+            {locationError && (
+              <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm">
+                定位失败: {locationError}
               </div>
             )}
 
@@ -321,20 +391,50 @@ export default function NewPost() {
               <input
                 type="text"
                 value={selectedLocation}
-                onChange={(e) => setSelectedLocation(e.target.value)}
+                onChange={(e) => {
+                  setSelectedLocation(e.target.value)
+                  // 如果用户手动修改，取消“使用当前位置”标记
+                  setUsingCurrentLocation(false)
+                }}
                 placeholder="输入位置..."
                 className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
               />
             </div>
 
-            {/* 常用位置 */}
+            {/* 刷新按钮（当未使用当前位置时显示） */}
+            {!usingCurrentLocation && (
+              <div className="mb-4">
+                <button
+                  onClick={handleRefreshLocation}
+                  disabled={isLocating}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
+                >
+                  {isLocating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      定位中...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-4 h-4" />
+                      刷新当前位置
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+
+            {/* 常用位置 (不变) */}
             <div className="mb-4">
               <h4 className="font-medium text-gray-700 mb-2">常用位置</h4>
               <div className="flex flex-wrap gap-2">
                 {popularLocations.map((location, index) => (
                   <button
                     key={index}
-                    onClick={() => setSelectedLocation(location)}
+                    onClick={() => {
+                      setSelectedLocation(location)
+                      setUsingCurrentLocation(false)
+                    }}
                     className={`px-3 py-1 text-sm rounded-full ${
                       selectedLocation === location
                         ? 'bg-blue-500 text-white'
@@ -347,14 +447,17 @@ export default function NewPost() {
               </div>
             </div>
 
-            {/* 热门城市 */}
+            {/* 热门城市 (不变) */}
             <div>
               <h4 className="font-medium text-gray-700 mb-2">热门城市</h4>
               <div className="grid grid-cols-3 gap-2">
                 {popularCities.map((city, index) => (
                   <button
                     key={index}
-                    onClick={() => setSelectedLocation(city)}
+                    onClick={() => {
+                      setSelectedLocation(city)
+                      setUsingCurrentLocation(false)
+                    }}
                     className={`px-3 py-2 text-sm rounded-lg text-center ${
                       selectedLocation === city
                         ? 'bg-purple-500 text-white'
@@ -369,7 +472,7 @@ export default function NewPost() {
           </div>
         )}
 
-        {/* 隐私设置 */}
+        {/* 隐私设置 (不变) */}
         <div className="mb-6 bg-white rounded-xl border border-gray-300 p-4">
           <h3 className="font-semibold text-gray-900 mb-4">谁可以看</h3>
           
@@ -437,7 +540,7 @@ export default function NewPost() {
         />
       </main>
 
-      {/* 底部操作栏 */}
+      {/* 底部操作栏 (修改位置按钮行为) */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -455,7 +558,13 @@ export default function NewPost() {
             </button>
             
             <button
-              onClick={() => setShowLocation(!showLocation)}
+              onClick={() => {
+                setShowLocation(!showLocation)
+                // 如果打开位置面板且尚未选择位置，自动尝试刷新当前位置（可选）
+                if (!showLocation && !selectedLocation) {
+                  handleRefreshLocation()
+                }
+              }}
               className={`flex items-center gap-2 px-4 py-2 rounded-full ${
                 showLocation
                   ? 'bg-green-100 text-green-700'
