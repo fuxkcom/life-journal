@@ -4,15 +4,14 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { 
-  ArrowLeft, Image, X, Send, Loader2, MapPin, MapPinOff, 
-  Globe, Building2, Camera, Users, Lock, Clock, HomeIcon, RefreshCw
+  ArrowLeft, X, Send, Loader2, MapPin, 
+  Camera, Users, Lock, Globe, Clock, RefreshCw
 } from 'lucide-react'
 
-// 导入位置工具函数
+// 导入位置工具函数（确保 location.ts 已导出这些函数）
 import { 
   getLocationFromStorage, 
-  reverseGeocodeWithNominatim,
-  getLocationByIP 
+  getGeolocation 
 } from '../utils/location.ts'
 
 export default function NewPost() {
@@ -197,47 +196,20 @@ export default function NewPost() {
     return `${days}天前`
   }
 
-  // 刷新当前位置（定位）
+  // 刷新当前位置
   const handleRefreshLocation = async () => {
     setIsLocating(true)
     setLocationError(null)
 
-    // 定位函数：先尝试浏览器定位，失败则 IP 定位
-    const getCoords = (): Promise<{ lat: number; lon: number }> => {
-      return new Promise((resolve, reject) => {
-        if ('geolocation' in navigator) {
-          navigator.geolocation.getCurrentPosition(
-            (pos) => {
-              resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude })
-            },
-            async (err) => {
-              console.warn('浏览器定位失败，尝试 IP 定位', err)
-              const ipLoc = await getLocationByIP()
-              if (ipLoc) {
-                resolve({ lat: ipLoc.lat, lon: ipLoc.lon })
-              } else {
-                reject(new Error('无法获取位置，请手动输入'))
-              }
-            },
-            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-          )
-        } else {
-          // 不支持定位，直接尝试 IP
-          getLocationByIP().then(ipLoc => {
-            if (ipLoc) resolve({ lat: ipLoc.lat, lon: ipLoc.lon })
-            else reject(new Error('浏览器不支持定位，请手动输入'))
-          })
-        }
-      })
-    }
-
     try {
-      const { lat, lon } = await getCoords()
-      // 逆地理编码获取地点名称
-      const locationName = await reverseGeocodeWithNominatim(lat, lon)
-      setSelectedLocation(locationName)
-      setUsingCurrentLocation(true)
-      setLastLocationTime(Date.now())
+      const location = await getGeolocation()  // 使用封装好的函数
+      if (location) {
+        setSelectedLocation(location.name)
+        setUsingCurrentLocation(true)
+        setLastLocationTime(location.timestamp)
+      } else {
+        setLocationError('无法获取位置信息，请手动输入或稍后重试')
+      }
     } catch (error: any) {
       setLocationError(error.message || '定位失败')
     } finally {
@@ -251,7 +223,7 @@ export default function NewPost() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* 顶部导航栏 (不变) */}
+      {/* 顶部导航栏 */}
       <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
         <div className="flex items-center justify-between px-4 py-3 max-w-3xl mx-auto">
           <button
@@ -289,7 +261,7 @@ export default function NewPost() {
       </header>
 
       <main className="pb-24 pt-4 px-4 max-w-3xl mx-auto">
-        {/* 内容编辑区 (不变) */}
+        {/* 内容编辑区 */}
         <div className="mb-6">
           <textarea
             value={content}
@@ -308,7 +280,7 @@ export default function NewPost() {
           </div>
         </div>
 
-        {/* 图片预览 (不变) */}
+        {/* 图片预览 */}
         {previews.length > 0 && (
           <div className="mb-6">
             <div className={`grid gap-3 ${previews.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
@@ -332,7 +304,7 @@ export default function NewPost() {
           </div>
         )}
 
-        {/* 位置选择器 - 修改部分 */}
+        {/* 位置选择器 */}
         {showLocation && (
           <div className="mb-6 bg-white rounded-xl border border-gray-300 p-4">
             <div className="flex items-center justify-between mb-4">
@@ -424,7 +396,7 @@ export default function NewPost() {
               </div>
             )}
 
-            {/* 常用位置 (不变) */}
+            {/* 常用位置 */}
             <div className="mb-4">
               <h4 className="font-medium text-gray-700 mb-2">常用位置</h4>
               <div className="flex flex-wrap gap-2">
@@ -447,7 +419,7 @@ export default function NewPost() {
               </div>
             </div>
 
-            {/* 热门城市 (不变) */}
+            {/* 热门城市 */}
             <div>
               <h4 className="font-medium text-gray-700 mb-2">热门城市</h4>
               <div className="grid grid-cols-3 gap-2">
@@ -472,7 +444,7 @@ export default function NewPost() {
           </div>
         )}
 
-        {/* 隐私设置 (不变) */}
+        {/* 隐私设置 */}
         <div className="mb-6 bg-white rounded-xl border border-gray-300 p-4">
           <h3 className="font-semibold text-gray-900 mb-4">谁可以看</h3>
           
@@ -540,7 +512,7 @@ export default function NewPost() {
         />
       </main>
 
-      {/* 底部操作栏 (修改位置按钮行为) */}
+      {/* 底部操作栏 */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -560,7 +532,7 @@ export default function NewPost() {
             <button
               onClick={() => {
                 setShowLocation(!showLocation)
-                // 如果打开位置面板且尚未选择位置，自动尝试刷新当前位置（可选）
+                // 如果打开位置面板且尚未选择位置，自动尝试刷新当前位置
                 if (!showLocation && !selectedLocation) {
                   handleRefreshLocation()
                 }
