@@ -8,11 +8,76 @@ import {
   Camera, Users, Lock, Globe, Clock, RefreshCw
 } from 'lucide-react'
 
-// 导入位置工具函数
-import { 
-  getLocationFromStorage, 
-  getGeolocation 
-} from '../utils/location'
+// ==================== 定位函数（直接复制自 Weather.tsx）====================
+// 使用 OpenStreetMap Nominatim API 进行反向地理编码（全球覆盖）
+const reverseGeocodeWithNominatim = async (lat: number, lon: number): Promise<string> => {
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`
+    const response = await fetch(url, {
+      headers: {
+        // 请替换为你的应用名称和联系方式（必须设置，否则可能被限流）
+        'User-Agent': 'MyApp/1.0 (your-email@example.com)'
+      }
+    })
+    if (!response.ok) throw new Error('Nominatim API failed')
+    const data = await response.json()
+    const addr = data.address
+    // 优先返回城市名，如果没有则返回乡镇/县/国家
+    return addr.city || addr.town || addr.village || addr.county || addr.state || addr.country || `${lat.toFixed(4)}, ${lon.toFixed(4)}`
+  } catch (error) {
+    console.warn('Nominatim 逆地理编码失败，使用坐标作为后备', error)
+    // 返回经纬度，确保用户能看到具体位置（至少是坐标）
+    return `${lat.toFixed(4)}, ${lon.toFixed(4)}`
+  }
+}
+
+// IP 定位：获取城市和近似坐标（使用 ip-api.com，免费、全球覆盖）
+const getLocationByIP = async (): Promise<{ city: string; lat: number; lon: number } | null> => {
+  try {
+    const response = await fetch('http://ip-api.com/json/?fields=status,message,city,lat,lon')
+    if (!response.ok) return null
+    const data = await response.json()
+    if (data.status !== 'success') return null
+    return {
+      city: data.city,
+      lat: data.lat,
+      lon: data.lon,
+    }
+  } catch {
+    return null
+  }
+}
+
+// 获取地理位置（浏览器定位 + IP 后备）
+const getGeolocation = async (): Promise<{ name: string; lat: number; lon: number; timestamp: number } | null> => {
+  // 先尝试浏览器精确定位
+  if ('geolocation' in navigator) {
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        })
+      })
+      const { latitude, longitude } = position.coords
+      const name = await reverseGeocodeWithNominatim(latitude, longitude)
+      return { name, lat: latitude, lon: longitude, timestamp: Date.now() }
+    } catch (error) {
+      console.warn('浏览器定位失败，尝试 IP 定位', error)
+    }
+  }
+
+  // 浏览器定位失败或不支持，尝试 IP 定位
+  const ipLocation = await getLocationByIP()
+  if (ipLocation) {
+    const name = ipLocation.city // IP 定位直接返回城市名，无需逆地理编码
+    return { name, lat: ipLocation.lat, lon: ipLocation.lon, timestamp: Date.now() }
+  }
+
+  return null
+}
+// ==================== 定位函数结束 ====================
 
 export default function NewPost() {
   const { user } = useAuth()
@@ -50,13 +115,21 @@ export default function NewPost() {
     '西安', '重庆', '苏州', '天津', '厦门', '青岛', '长沙', '大连'
   ]
 
-  // 初始化位置信息（从 Home 保存的存储中读取，忽略无意义的值）
+  // 初始化时尝试读取上次保存的位置（但不自动触发定位）
   useEffect(() => {
-    const storedLocation = getLocationFromStorage()
-    if (storedLocation && storedLocation.name && storedLocation.name !== '当前位置' && storedLocation.name !== '') {
-      setSelectedLocation(storedLocation.name)
-      setLastLocationTime(storedLocation.timestamp)
-      setUsingCurrentLocation(true)
+    const stored = localStorage.getItem('lastLocation')
+    if (stored) {
+      try {
+        const location = JSON.parse(stored)
+        // 仅当存储的位置有效且不是默认占位符时才使用
+        if (location.name && location.name !== '当前位置' && location.timestamp) {
+          setSelectedLocation(location.name)
+          setLastLocationTime(location.timestamp)
+          setUsingCurrentLocation(true)
+        }
+      } catch (e) {
+        // 解析失败忽略
+      }
     }
   }, [])
 
@@ -195,7 +268,7 @@ export default function NewPost() {
     return `${days}天前`
   }
 
-  // 刷新当前位置
+  // 刷新当前位置（直接使用内联的 getGeolocation）
   const handleRefreshLocation = async () => {
     setIsLocating(true)
     setLocationError(null)
@@ -206,9 +279,10 @@ export default function NewPost() {
         setSelectedLocation(location.name)
         setUsingCurrentLocation(true)
         setLastLocationTime(location.timestamp)
+        // 保存到 localStorage 以便下次使用
+        localStorage.setItem('lastLocation', JSON.stringify(location))
       } else {
-        // 定位失败，设置错误但不改变 selectedLocation
-        setLocationError('无法获取位置信息，请手动输入或稍后重试')
+        setLocationError('无法获取位置信息，请检查网络或手动输入')
       }
     } catch (error: any) {
       setLocationError(error.message || '定位失败')
@@ -321,8 +395,8 @@ export default function NewPost() {
               </button>
             </div>
 
-            {/* 当前/最后已知位置 - 仅当有具体名称且使用当前定位时显示 */}
-            {usingCurrentLocation && selectedLocation && selectedLocation !== '当前位置' && (
+            {/* 当前/最后已知位置 - 仅当有具体名称且不是"当前位置"时显示 */}
+            {(usingCurrentLocation && selectedLocation && selectedLocation !== '当前位置') && (
               <div className="mb-4 p-3 bg-blue-50 rounded-lg">
                 <div className="flex items-start justify-between">
                   <div>
@@ -373,8 +447,8 @@ export default function NewPost() {
               />
             </div>
 
-            {/* 刷新按钮（当未使用当前位置或没有位置时显示） */}
-            {(!usingCurrentLocation || !selectedLocation) && (
+            {/* 刷新按钮（当未使用当前位置时显示） */}
+            {!usingCurrentLocation && (
               <div className="mb-4">
                 <button
                   onClick={handleRefreshLocation}
@@ -532,7 +606,7 @@ export default function NewPost() {
             <button
               onClick={() => {
                 setShowLocation(!showLocation)
-                // 如果打开面板且没有已选位置，则自动尝试定位
+                // 如果打开位置面板且尚未选择位置，自动尝试刷新当前位置
                 if (!showLocation && !selectedLocation) {
                   handleRefreshLocation()
                 }
