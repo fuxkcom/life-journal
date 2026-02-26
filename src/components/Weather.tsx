@@ -56,7 +56,9 @@ const reverseGeocodeWithNominatim = async (lat: number, lon: number): Promise<st
     const response = await fetch(url, {
       headers: {
         // 请替换为你的应用名称和联系方式（必须设置，否则可能被限流）
-        'User-Agent': 'MyWeatherApp/1.0 (your-email@example.com)'
+        'User-Agent': 'MyWeatherApp/1.0 (your-email@example.com)',
+        // 新增：请求中文地名
+        'Accept-Language': 'zh-CN,zh;q=0.9'
       }
     })
     if (!response.ok) throw new Error('Nominatim API failed')
