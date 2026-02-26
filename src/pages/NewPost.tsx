@@ -12,7 +12,7 @@ import {
 import { 
   getLocationFromStorage, 
   getGeolocation 
-} from '../utils/location.ts'
+} from '../utils/location'
 
 export default function NewPost() {
   const { user } = useAuth()
@@ -50,10 +50,10 @@ export default function NewPost() {
     '西安', '重庆', '苏州', '天津', '厦门', '青岛', '长沙', '大连'
   ]
 
-  // 初始化位置信息（从 Home 保存的存储中读取）
+  // 初始化位置信息（从 Home 保存的存储中读取，忽略无意义的值）
   useEffect(() => {
     const storedLocation = getLocationFromStorage()
-    if (storedLocation) {
+    if (storedLocation && storedLocation.name && storedLocation.name !== '当前位置' && storedLocation.name !== '') {
       setSelectedLocation(storedLocation.name)
       setLastLocationTime(storedLocation.timestamp)
       setUsingCurrentLocation(true)
@@ -207,6 +207,7 @@ export default function NewPost() {
         setUsingCurrentLocation(true)
         setLastLocationTime(location.timestamp)
       } else {
+        // 定位失败，设置错误但不改变 selectedLocation
         setLocationError('无法获取位置信息，请手动输入或稍后重试')
       }
     } catch (error: any) {
@@ -320,8 +321,8 @@ export default function NewPost() {
               </button>
             </div>
 
-            {/* 当前/最后已知位置 - 仅当有具体名称且不是"当前位置"时显示 */}
-            {(usingCurrentLocation && selectedLocation && selectedLocation !== '当前位置') && (
+            {/* 当前/最后已知位置 - 仅当有具体名称且使用当前定位时显示 */}
+            {usingCurrentLocation && selectedLocation && selectedLocation !== '当前位置' && (
               <div className="mb-4 p-3 bg-blue-50 rounded-lg">
                 <div className="flex items-start justify-between">
                   <div>
@@ -372,8 +373,8 @@ export default function NewPost() {
               />
             </div>
 
-            {/* 刷新按钮（当未使用当前位置时显示） */}
-            {!usingCurrentLocation && (
+            {/* 刷新按钮（当未使用当前位置或没有位置时显示） */}
+            {(!usingCurrentLocation || !selectedLocation) && (
               <div className="mb-4">
                 <button
                   onClick={handleRefreshLocation}
@@ -531,7 +532,7 @@ export default function NewPost() {
             <button
               onClick={() => {
                 setShowLocation(!showLocation)
-                // 如果打开位置面板且尚未选择位置，自动尝试刷新当前位置
+                // 如果打开面板且没有已选位置，则自动尝试定位
                 if (!showLocation && !selectedLocation) {
                   handleRefreshLocation()
                 }
