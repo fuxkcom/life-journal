@@ -8,7 +8,7 @@ import {
   Camera, Users, Lock, Globe, Clock, RefreshCw
 } from 'lucide-react'
 
-// 导入位置工具函数（确保 location.ts 已导出这些函数）
+// 导入位置工具函数
 import { 
   getLocationFromStorage, 
   getGeolocation 
@@ -57,7 +57,6 @@ export default function NewPost() {
       setSelectedLocation(storedLocation.name)
       setLastLocationTime(storedLocation.timestamp)
       setUsingCurrentLocation(true)
-      // 不自动设置 showLocation，让用户点击位置按钮后再显示
     }
   }, [])
 
@@ -202,7 +201,7 @@ export default function NewPost() {
     setLocationError(null)
 
     try {
-      const location = await getGeolocation()  // 使用封装好的函数
+      const location = await getGeolocation()
       if (location) {
         setSelectedLocation(location.name)
         setUsingCurrentLocation(true)
@@ -321,8 +320,8 @@ export default function NewPost() {
               </button>
             </div>
 
-            {/* 当前/最后已知位置 - 增加刷新按钮 */}
-            {(usingCurrentLocation && selectedLocation) && (
+            {/* 当前/最后已知位置 - 仅当有具体名称且不是"当前位置"时显示 */}
+            {(usingCurrentLocation && selectedLocation && selectedLocation !== '当前位置') && (
               <div className="mb-4 p-3 bg-blue-50 rounded-lg">
                 <div className="flex items-start justify-between">
                   <div>
