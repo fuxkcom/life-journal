@@ -16,7 +16,9 @@ const reverseGeocodeWithNominatim = async (lat: number, lon: number): Promise<st
     const response = await fetch(url, {
       headers: {
         // 请替换为你的应用名称和联系方式（必须设置，否则可能被限流）
-        'User-Agent': 'MyApp/1.0 (your-email@example.com)'
+        'User-Agent': 'MyApp/1.0 (your-email@example.com)',
+        // 新增：请求中文地名
+        'Accept-Language': 'zh-CN,zh;q=0.9'
       }
     })
     if (!response.ok) throw new Error('Nominatim API failed')
@@ -256,7 +258,7 @@ export default function NewPost() {
     }
   }
 
-  // 格式化时间差
+  // 格式化时间差（相对时间）
   const formatTimeAgo = (timestamp: number) => {
     const diff = Date.now() - timestamp
     const minutes = Math.floor(diff / (1000 * 60))
@@ -410,6 +412,10 @@ export default function NewPost() {
                       <div className="flex items-center gap-1 text-sm text-blue-600">
                         <Clock className="w-3 h-3" />
                         <span>{formatTimeAgo(lastLocationTime)}更新</span>
+                        {/* 增加绝对日期时间显示 */}
+                        <span className="text-xs text-blue-400 ml-2">
+                          {new Date(lastLocationTime).toLocaleString('zh-CN', { hour12: false })}
+                        </span>
                       </div>
                     )}
                   </div>
