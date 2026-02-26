@@ -6,6 +6,7 @@ interface WeatherData {
   condition: string
   city: string
   icon: string
+  localTime?: string  // ISO 格式的本地时间，例如 "2025-02-26T10:30"
 }
 
 const weatherIcons: Record<string, React.ElementType> = {
@@ -102,6 +103,7 @@ export default function Weather() {
         const data = await res.json()
         const temp = Math.round(data.current.temperature_2m)
         const code = data.current.weather_code
+        const localTime = data.current.time // 格式如 "2025-02-26T10:30"
 
         let condition = '晴'
         let icon = 'sunny'
@@ -114,7 +116,7 @@ export default function Weather() {
 
         // 如果没有传入城市名，则通过 Nominatim 获取
         const city = cityName || await reverseGeocodeWithNominatim(lat, lon)
-        setWeather({ temp, condition, city, icon })
+        setWeather({ temp, condition, city, icon, localTime })
         setError(false)
       } catch {
         setError(true)
@@ -184,11 +186,25 @@ export default function Weather() {
 
   const WeatherIcon = weatherIcons[weather.icon] || Cloud
 
+  // 格式化本地时间显示
+  const formattedTime = weather.localTime
+    ? new Date(weather.localTime).toLocaleString('zh-CN', {
+        month: 'numeric',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      }).replace(/\//g, '-') // 将日期分隔符统一为 '-'
+    : ''
+
   return (
     <div className="flex items-center gap-3 text-stone-600">
       <div className="flex items-center gap-1.5">
         <MapPin className="w-3.5 h-3.5 text-terracotta-500" />
         <span className="text-sm">{weather.city}</span>
+        {formattedTime && (
+          <span className="text-xs text-stone-400 ml-1">{formattedTime}</span>
+        )}
       </div>
       <div className="flex items-center gap-2 px-3 py-1.5 bg-terracotta-50 rounded-xl">
         <WeatherIcon className="w-4 h-4 text-terracotta-600" />
