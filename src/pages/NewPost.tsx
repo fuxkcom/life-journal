@@ -8,8 +8,8 @@ import {
   Camera, Users, Lock, Globe, Clock, RefreshCw
 } from 'lucide-react'
 
-// ==================== 定位函数（直接复制自 Weather.tsx）====================
-// 使用 OpenStreetMap Nominatim API 进行反向地理编码（全球覆盖）
+// ==================== 定位函数（包含中文地名请求与本地时间获取）====================
+// 使用 OpenStreetMap Nominatim API 进行反向地理编码（全球覆盖，请求中文）
 const reverseGeocodeWithNominatim = async (lat: number, lon: number): Promise<string> => {
   try {
     const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`
@@ -17,7 +17,7 @@ const reverseGeocodeWithNominatim = async (lat: number, lon: number): Promise<st
       headers: {
         // 请替换为你的应用名称和联系方式（必须设置，否则可能被限流）
         'User-Agent': 'MyApp/1.0 (your-email@example.com)',
-        // 新增：请求中文地名
+        // 请求中文地名
         'Accept-Language': 'zh-CN,zh;q=0.9'
       }
     })
@@ -28,7 +28,6 @@ const reverseGeocodeWithNominatim = async (lat: number, lon: number): Promise<st
     return addr.city || addr.town || addr.village || addr.county || addr.state || addr.country || `${lat.toFixed(4)}, ${lon.toFixed(4)}`
   } catch (error) {
     console.warn('Nominatim 逆地理编码失败，使用坐标作为后备', error)
-    // 返回经纬度，确保用户能看到具体位置（至少是坐标）
     return `${lat.toFixed(4)}, ${lon.toFixed(4)}`
   }
 }
@@ -50,8 +49,11 @@ const getLocationByIP = async (): Promise<{ city: string; lat: number; lon: numb
   }
 }
 
-// 获取地理位置（浏览器定位 + IP 后备）
-const getGeolocation = async (): Promise<{ name: string; lat: number; lon: number; timestamp: number } | null> => {
+// 获取地理位置（浏览器定位 + IP 后备）并获取当地当前时间
+const getGeolocation = async (): Promise<{ name: string; lat: number; lon: number; timestamp: number; localTime?: string } | null> => {
+  let lat: number, lon: number;
+  let name: string;
+
   // 先尝试浏览器精确定位
   if ('geolocation' in navigator) {
     try {
@@ -61,24 +63,45 @@ const getGeolocation = async (): Promise<{ name: string; lat: number; lon: numbe
           timeout: 10000,
           maximumAge: 0
         })
-      })
-      const { latitude, longitude } = position.coords
-      const name = await reverseGeocodeWithNominatim(latitude, longitude)
-      return { name, lat: latitude, lon: longitude, timestamp: Date.now() }
+      });
+      lat = position.coords.latitude;
+      lon = position.coords.longitude;
+      name = await reverseGeocodeWithNominatim(lat, lon);
     } catch (error) {
-      console.warn('浏览器定位失败，尝试 IP 定位', error)
+      console.warn('浏览器定位失败，尝试 IP 定位', error);
+      const ipLocation = await getLocationByIP();
+      if (!ipLocation) return null;
+      lat = ipLocation.lat;
+      lon = ipLocation.lon;
+      name = ipLocation.city; // IP 定位直接返回城市名（可能为英文）
     }
+  } else {
+    // 浏览器不支持定位，直接尝试 IP 定位
+    const ipLocation = await getLocationByIP();
+    if (!ipLocation) return null;
+    lat = ipLocation.lat;
+    lon = ipLocation.lon;
+    name = ipLocation.city;
   }
 
-  // 浏览器定位失败或不支持，尝试 IP 定位
-  const ipLocation = await getLocationByIP()
-  if (ipLocation) {
-    const name = ipLocation.city // IP 定位直接返回城市名，无需逆地理编码
-    return { name, lat: ipLocation.lat, lon: ipLocation.lon, timestamp: Date.now() }
+  // 获取当地当前时间（使用 Open-Meteo）
+  let localTime: string | undefined;
+  try {
+    const timeRes = await fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m&timezone=auto`
+    );
+    if (timeRes.ok) {
+      const timeData = await timeRes.json();
+      localTime = timeData.current?.time;
+    }
+  } catch (e) {
+    console.warn('获取当地时间失败', e);
   }
 
-  return null
-}
+  const location = { name, lat, lon, timestamp: Date.now(), localTime };
+  localStorage.setItem('lastLocation', JSON.stringify(location)); // 直接保存
+  return location;
+};
 // ==================== 定位函数结束 ====================
 
 export default function NewPost() {
@@ -97,6 +120,7 @@ export default function NewPost() {
   const [selectedLocation, setSelectedLocation] = useState<string>('')
   const [usingCurrentLocation, setUsingCurrentLocation] = useState(false)
   const [lastLocationTime, setLastLocationTime] = useState<number | null>(null)
+  const [locationLocalTime, setLocationLocalTime] = useState<string | null>(null) // 当地绝对时间
   
   // 定位过程状态
   const [isLocating, setIsLocating] = useState(false)
@@ -117,16 +141,16 @@ export default function NewPost() {
     '西安', '重庆', '苏州', '天津', '厦门', '青岛', '长沙', '大连'
   ]
 
-  // 初始化时尝试读取上次保存的位置（但不自动触发定位）
+  // 初始化时尝试读取上次保存的位置
   useEffect(() => {
     const stored = localStorage.getItem('lastLocation')
     if (stored) {
       try {
         const location = JSON.parse(stored)
-        // 仅当存储的位置有效且不是默认占位符时才使用
         if (location.name && location.name !== '当前位置' && location.timestamp) {
           setSelectedLocation(location.name)
           setLastLocationTime(location.timestamp)
+          setLocationLocalTime(location.localTime || null)
           setUsingCurrentLocation(true)
         }
       } catch (e) {
@@ -270,7 +294,7 @@ export default function NewPost() {
     return `${days}天前`
   }
 
-  // 刷新当前位置（直接使用内联的 getGeolocation）
+  // 刷新当前位置
   const handleRefreshLocation = async () => {
     setIsLocating(true)
     setLocationError(null)
@@ -281,8 +305,7 @@ export default function NewPost() {
         setSelectedLocation(location.name)
         setUsingCurrentLocation(true)
         setLastLocationTime(location.timestamp)
-        // 保存到 localStorage 以便下次使用
-        localStorage.setItem('lastLocation', JSON.stringify(location))
+        setLocationLocalTime(location.localTime || null)
       } else {
         setLocationError('无法获取位置信息，请检查网络或手动输入')
       }
@@ -292,6 +315,17 @@ export default function NewPost() {
       setIsLocating(false)
     }
   }
+
+  // 格式化当地绝对时间
+  const formattedLocalTime = locationLocalTime
+    ? new Date(locationLocalTime).toLocaleString('zh-CN', {
+        month: 'numeric',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      }).replace(/\//g, '-')
+    : '';
 
   // 字符计数
   const charCount = content.length
@@ -408,16 +442,16 @@ export default function NewPost() {
                         当前位置
                       </span>
                     </div>
-                    {lastLocationTime && (
-                      <div className="flex items-center gap-1 text-sm text-blue-600">
-                        <Clock className="w-3 h-3" />
+                    <div className="flex items-center gap-1 text-sm text-blue-600">
+                      <Clock className="w-3 h-3" />
+                      {lastLocationTime && (
                         <span>{formatTimeAgo(lastLocationTime)}更新</span>
-                        {/* 增加绝对日期时间显示 */}
-                        <span className="text-xs text-blue-400 ml-2">
-                          {new Date(lastLocationTime).toLocaleString('zh-CN', { hour12: false })}
-                        </span>
-                      </div>
-                    )}
+                      )}
+                      {/* 显示当地绝对时间 */}
+                      {formattedLocalTime && (
+                        <span className="text-xs text-blue-400 ml-2">{formattedLocalTime}</span>
+                      )}
+                    </div>
                   </div>
                   <button
                     onClick={handleRefreshLocation}
