@@ -70,26 +70,11 @@ const CHINESE_JOKES = [
   "为什么科学家不信任原子？因为它们构成了一切！",
 ]
 
-// 模拟中文新闻数据
-const mockChineseNews = [
-  { 
-    id: 1, 
-    title: 'AI技术新突破，能更准确理解中文语境', 
-    category: 'technology', 
-    time: '2小时前', 
-    source: '科技日报',
-    url: 'https://www.ithome.com/',
-    isHot: true 
-  },
-  { 
-    id: 2, 
-    title: '研究发现：每天散步30分钟可显著提升幸福感', 
-    category: 'health', 
-    time: '4小时前', 
-    source: '健康时报',
-    url: 'https://www.jksb.com.cn/'
-  },
-]
+// 新闻 API 配置
+const NEWS_API_KEY = import.meta.env.VITE_NEWS_API_KEY;
+const NEWS_API_URL = 'https://newsapi.org/v2/top-headlines';
+const NEWS_COUNTRY = 'cn';
+const NEWS_PAGE_SIZE = 15;
 
 // 帖子图片画廊组件
 const PostImageGallery = ({ 
@@ -823,23 +808,58 @@ export default function Home() {
 
   // 右侧栏组件
   const RightSidebar = () => {
-    // 右侧栏状态
-    const [activeNewsCategory, setActiveNewsCategory] = useState('general')
-    const [chineseFunFact, setChineseFunFact] = useState('')
-    const [chineseJoke, setChineseJoke] = useState('')
-    const [refreshKey, setRefreshKey] = useState(0)
+    // ---------- 新闻相关 ----------
+    const [newsList, setNewsList] = useState<any[]>([]);
+    const [loadingNews, setLoadingNews] = useState(false);
+    const [newsError, setNewsError] = useState('');
 
-    // 中文新闻分类
-    const CHINESE_NEWS_CATEGORIES = [
-      { id: 'general', name: '综合', icon: Newspaper, color: 'text-blue-500' },
-      { id: 'technology', name: '科技', icon: Zap, color: 'text-purple-500' },
-      { id: 'finance', name: '财经', icon: TrendingUpIcon, color: 'text-green-500' },
-      { id: 'entertainment', name: '娱乐', icon: Film, color: 'text-pink-500' },
-      { id: 'sports', name: '体育', icon: Trophy, color: 'text-orange-500' },
-      { id: 'health', name: '健康', icon: HeartIcon, color: 'text-red-500' },
-    ]
+    // 获取真实新闻
+    const fetchRealNews = async () => {
+      if (!NEWS_API_KEY) {
+        setNewsError('请配置新闻API Key (VITE_NEWS_API_KEY)');
+        return;
+      }
+      setLoadingNews(true);
+      setNewsError('');
+      try {
+        const url = `${NEWS_API_URL}?country=${NEWS_COUNTRY}&pageSize=${NEWS_PAGE_SIZE}&apiKey=${NEWS_API_KEY}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.status === 'ok') {
+          const filtered = data.articles.filter((a: any) => a.title && a.title !== '[Removed]');
+          setNewsList(filtered);
+        } else {
+          throw new Error(data.message || '获取新闻失败');
+        }
+      } catch (err: any) {
+        setNewsError(err.message || '新闻加载失败');
+      } finally {
+        setLoadingNews(false);
+      }
+    };
 
-    // 中文趣味工具
+    // 初始化加载新闻
+    useEffect(() => {
+      fetchRealNews();
+    }, []);
+
+    // ---------- 趣味知识 & 每日一笑 ----------
+    const [chineseFunFact, setChineseFunFact] = useState('');
+    const [chineseJoke, setChineseJoke] = useState('');
+
+    const refreshFunContent = () => {
+      const randomFact = CHINESE_FUN_FACTS[Math.floor(Math.random() * CHINESE_FUN_FACTS.length)];
+      setChineseFunFact(randomFact);
+      const randomJoke = CHINESE_JOKES[Math.floor(Math.random() * CHINESE_JOKES.length)];
+      setChineseJoke(randomJoke);
+    };
+
+    // 初始化趣味内容
+    useEffect(() => {
+      refreshFunContent();
+    }, []);
+
+    // ---------- 其余静态数据（工具、活动推荐等）保持不变 ----------
     const CHINESE_FUN_TOOLS = [
       {
         icon: Globe,
@@ -869,9 +889,8 @@ export default function Home() {
         color: 'bg-red-100 text-red-600',
         onClick: () => window.open('https://www.yikm.net/', '_blank')
       }
-    ]
+    ];
 
-    // 中文活动推荐
     const CHINESE_ACTIVITIES = [
       {
         icon: Palette,
@@ -901,35 +920,11 @@ export default function Home() {
         time: '15分钟',
         link: 'https://www.zhangzishi.cc/'
       }
-    ]
-
-    // 初始化内容
-    useEffect(() => {
-      // 随机选择趣味知识
-      const randomFact = CHINESE_FUN_FACTS[Math.floor(Math.random() * CHINESE_FUN_FACTS.length)]
-      setChineseFunFact(randomFact)
-      
-      // 随机选择笑话
-      const randomJoke = CHINESE_JOKES[Math.floor(Math.random() * CHINESE_JOKES.length)]
-      setChineseJoke(randomJoke)
-    }, [refreshKey])
-
-    // 刷新内容
-    const refreshContent = () => {
-      setRefreshKey(prev => prev + 1)
-    }
-
-    // 过滤新闻
-    const filteredNews = useMemo(() => {
-      if (activeNewsCategory === 'general') {
-        return mockChineseNews
-      }
-      return mockChineseNews.filter(news => news.category === activeNewsCategory)
-    }, [activeNewsCategory])
+    ];
 
     return (
       <div className="space-y-6">
-        {/* 实时资讯（中文） */}
+        {/* 实时资讯（真实新闻，滚动显示） */}
         <div className="bg-white rounded-3xl shadow-soft p-5">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -937,84 +932,73 @@ export default function Home() {
               <h3 className="font-semibold text-stone-900">实时资讯</h3>
             </div>
             <button
-              onClick={() => setActiveNewsCategory('general')}
-              className="text-xs text-stone-400 hover:text-terracotta-500"
+              onClick={fetchRealNews}
+              className="text-xs text-stone-400 hover:text-terracotta-500 flex items-center gap-1"
+              disabled={loadingNews}
             >
+              <RefreshCw className={`w-3 h-3 ${loadingNews ? 'animate-spin' : ''}`} />
               刷新
             </button>
           </div>
-          
-          {/* 新闻分类 */}
-          <div className="flex flex-wrap gap-2 mb-4">
-            {CHINESE_NEWS_CATEGORIES.map((category) => {
-              const Icon = category.icon;
-              return (
-                <button
-                  key={category.id}
-                  onClick={() => setActiveNewsCategory(category.id)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                    activeNewsCategory === category.id
-                      ? 'bg-stone-900 text-white'
-                      : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                  }`}
-                >
-                  <Icon className="w-3 h-3" />
-                  {category.name}
-                </button>
-              );
-            })}
-          </div>
-          
-          {/* 新闻列表 */}
-          <div className="space-y-3">
-            {filteredNews.slice(0, 5).map((item) => (
-              <a
-                key={item.id}
-                href={item.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block p-3 rounded-xl hover:bg-stone-50 transition-colors border border-stone-100"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      {item.isHot && (
-                        <div className="flex items-center gap-1 bg-red-50 text-red-600 px-2 py-0.5 rounded-full text-xs font-medium">
-                          <Zap className="w-3 h-3" />
-                          热
-                        </div>
+
+          {loadingNews && (
+            <div className="py-8 text-center text-stone-400">加载新闻中...</div>
+          )}
+          {newsError && (
+            <div className="py-4 text-center text-red-400 text-sm bg-red-50 rounded-xl p-3">
+              <AlertCircle className="w-4 h-4 inline mr-1" />
+              {newsError}
+            </div>
+          )}
+
+          {!loadingNews && !newsError && (
+            <div className="max-h-96 overflow-y-auto pr-1 space-y-3 scrollbar-thin scrollbar-thumb-stone-200">
+              {newsList.length === 0 ? (
+                <div className="text-center py-8 text-stone-400">暂无新闻</div>
+              ) : (
+                newsList.map((item, idx) => (
+                  <a
+                    key={idx}
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block p-3 rounded-xl hover:bg-stone-50 transition-colors border border-stone-100"
+                  >
+                    <div className="flex items-start gap-3">
+                      {item.urlToImage && (
+                        <img
+                          src={item.urlToImage}
+                          alt=""
+                          className="w-16 h-16 object-cover rounded-lg shrink-0"
+                          onError={(e) => (e.currentTarget.style.display = 'none')}
+                        />
                       )}
-                      <span className="text-xs text-stone-400">{item.source}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-stone-900 line-clamp-2 mb-1">
+                          {item.title}
+                        </p>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-stone-400">
+                            {item.source?.name || '资讯'}
+                          </span>
+                          <ExternalLink className="w-3 h-3 text-stone-300" />
+                        </div>
+                      </div>
                     </div>
-                    <p className="text-sm font-medium text-stone-900 line-clamp-2 mb-1">
-                      {item.title}
-                    </p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-stone-400">{item.time}</span>
-                      <ExternalLink className="w-3 h-3 text-stone-300" />
-                    </div>
-                  </div>
-                </div>
-              </a>
-            ))}
-          </div>
-          
-          <button
-            onClick={() => window.open('https://news.baidu.com/', '_blank')}
-            className="w-full mt-4 px-4 py-2.5 text-sm text-terracotta-500 hover:bg-terracotta-50 rounded-xl transition-colors flex items-center justify-center gap-1"
-          >
-            查看更多资讯
-            <ExternalLink className="w-4 h-4" />
-          </button>
+                  </a>
+                ))
+              )}
+            </div>
+          )}
         </div>
 
-        {/* 趣味知识（中文） */}
+        {/* 趣味知识（不再依赖 refreshKey） */}
         <div className="bg-gradient-to-br from-amber-50 to-amber-100/50 rounded-3xl shadow-soft p-5">
           <div className="flex items-center gap-2 mb-3">
             <Sparkles className="w-5 h-5 text-amber-500" />
             <h3 className="font-semibold text-stone-900">趣味知识</h3>
             <button
-              onClick={refreshContent}
+              onClick={refreshFunContent}
               className="ml-auto p-1 text-amber-400 hover:text-amber-500"
               title="换一个知识"
             >
@@ -1022,18 +1006,16 @@ export default function Home() {
             </button>
           </div>
           <p className="text-sm text-stone-700 leading-relaxed">{chineseFunFact}</p>
-          <div className="mt-2 text-xs text-amber-400">
-            来源：科普知识库
-          </div>
+          <div className="mt-2 text-xs text-amber-400">来源：科普知识库</div>
         </div>
 
-        {/* 每日一笑（中文） */}
+        {/* 每日一笑（同样独立刷新） */}
         <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 rounded-3xl shadow-soft p-5">
           <div className="flex items-center gap-2 mb-3">
             <Smile className="w-5 h-5 text-purple-500" />
             <h3 className="font-semibold text-stone-900">每日一笑</h3>
             <button
-              onClick={refreshContent}
+              onClick={refreshFunContent}
               className="ml-auto p-1 text-purple-400 hover:text-purple-500"
               title="换一个笑话"
             >
@@ -1041,12 +1023,10 @@ export default function Home() {
             </button>
           </div>
           <p className="text-sm text-stone-700 leading-relaxed italic">"{chineseJoke}"</p>
-          <div className="mt-2 text-xs text-purple-400">
-            来源：中文笑话库
-          </div>
+          <div className="mt-2 text-xs text-purple-400">来源：中文笑话库</div>
         </div>
 
-        {/* 趣味工具（中文） */}
+        {/* 以下部分（趣味工具、活动推荐、实用链接）保持原样 */}
         <div className="bg-white rounded-3xl shadow-soft p-5">
           <h3 className="font-semibold text-stone-900 mb-4">趣味工具</h3>
           <div className="grid grid-cols-2 gap-3">
@@ -1071,7 +1051,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* 活动推荐（中文） */}
         <div className="bg-white rounded-3xl shadow-soft p-5">
           <h3 className="font-semibold text-stone-900 mb-4">今日活动推荐</h3>
           <div className="space-y-3">
@@ -1104,7 +1083,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* 实用链接 */}
         <div className="bg-stone-50 rounded-3xl p-5 border border-stone-200">
           <h3 className="font-semibold text-stone-900 mb-3">实用链接</h3>
           <div className="space-y-2">
