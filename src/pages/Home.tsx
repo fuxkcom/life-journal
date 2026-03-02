@@ -391,42 +391,59 @@ const RightSidebar = memo(() => {
   const [newsError, setNewsError] = useState('');
   const [usingFallback, setUsingFallback] = useState(false);
 
-  // 获取真实新闻（使用 benzhi.online 免费API）
+  // 获取真实新闻（兼容多种返回格式）
   const fetchRealNews = async () => {
     setLoadingNews(true);
     setNewsError('');
     setUsingFallback(false);
     
     try {
-      // benzhi.online 提供免费新闻API，无需 API Key
       const url = 'https://benzhi.online/api/news?page=1&limit=15';
       const res = await fetch(url);
       
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       
       const data = await res.json();
+      console.log('新闻API原始数据:', data); // 调试用，可移除
+
+      let articles = [];
       
-      // 适配返回格式（假设返回 { code: 200, data: [...] }）
-      if (data.code === 200 && Array.isArray(data.data)) {
-        const formattedNews = data.data.map((item: any) => ({
-          title: item.title,
-          source: { name: item.source || '资讯' },
-          url: item.url || '#',
-          urlToImage: item.image || null,
-        }));
-        
-        if (formattedNews.length > 0) {
-          setNewsList(formattedNews);
-        } else {
-          // 数据为空，使用备用
-          setNewsList(FALLBACK_NEWS);
-          setUsingFallback(true);
-        }
+      // 尝试多种可能的响应格式
+      if (Array.isArray(data)) {
+        articles = data;
+      } else if (data.code === 200 && Array.isArray(data.data)) {
+        articles = data.data;
+      } else if (data.code === 0 && Array.isArray(data.result)) {
+        articles = data.result;
+      } else if (data.status === 'ok' && Array.isArray(data.articles)) {
+        articles = data.articles; // NewsAPI格式
+      } else if (Array.isArray(data.list)) {
+        articles = data.list;
+      } else if (Array.isArray(data.newslist)) {
+        articles = data.newslist; // 天行数据格式
       } else {
-        throw new Error('数据格式异常');
+        // 尝试找到第一个数组类型的属性
+        for (const key in data) {
+          if (Array.isArray(data[key]) && data[key].length > 0) {
+            articles = data[key];
+            break;
+          }
+        }
+      }
+      
+      if (articles.length > 0) {
+        const formattedNews = articles.map((item: any) => ({
+          title: item.title || item.name || '无标题',
+          source: { name: item.source || item.from || item.author || '资讯' },
+          url: item.url || item.link || '#',
+          urlToImage: item.image || item.pic || item.cover || item.thumbnail || null,
+        }));
+        setNewsList(formattedNews);
+      } else {
+        throw new Error('没有新闻数据');
       }
     } catch (err: any) {
-      console.warn('新闻API请求失败，使用备用新闻', err);
+      console.warn('新闻API请求失败或格式异常，使用备用新闻', err);
       setNewsList(FALLBACK_NEWS);
       setUsingFallback(true);
     } finally {
