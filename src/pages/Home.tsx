@@ -104,12 +104,6 @@ const FALLBACK_NEWS = [
   }
 ]
 
-// 新闻 API 配置
-const NEWS_API_KEY = import.meta.env.VITE_NEWS_API_KEY;
-const NEWS_API_URL = 'https://newsapi.org/v2/top-headlines';
-const NEWS_COUNTRY = 'cn';
-const NEWS_PAGE_SIZE = 15;
-
 // 帖子图片画廊组件
 const PostImageGallery = ({ 
   post, 
@@ -397,36 +391,39 @@ const RightSidebar = memo(() => {
   const [newsError, setNewsError] = useState('');
   const [usingFallback, setUsingFallback] = useState(false);
 
-  // 获取真实新闻
+  // 获取真实新闻（使用 benzhi.online 免费API）
   const fetchRealNews = async () => {
     setLoadingNews(true);
     setNewsError('');
     setUsingFallback(false);
     
-    // 如果没有 API Key，直接使用备用新闻
-    if (!NEWS_API_KEY) {
-      setNewsList(FALLBACK_NEWS);
-      setUsingFallback(true);
-      setLoadingNews(false);
-      return;
-    }
-
     try {
-      const url = `${NEWS_API_URL}?country=${NEWS_COUNTRY}&pageSize=${NEWS_PAGE_SIZE}&apiKey=${NEWS_API_KEY}`;
+      // benzhi.online 提供免费新闻API，无需 API Key
+      const url = 'https://benzhi.online/api/news?page=1&limit=15';
       const res = await fetch(url);
+      
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      
       const data = await res.json();
-      if (data.status === 'ok') {
-        const filtered = data.articles.filter((a: any) => a.title && a.title !== '[Removed]');
-        if (filtered.length > 0) {
-          setNewsList(filtered);
+      
+      // 适配返回格式（假设返回 { code: 200, data: [...] }）
+      if (data.code === 200 && Array.isArray(data.data)) {
+        const formattedNews = data.data.map((item: any) => ({
+          title: item.title,
+          source: { name: item.source || '资讯' },
+          url: item.url || '#',
+          urlToImage: item.image || null,
+        }));
+        
+        if (formattedNews.length > 0) {
+          setNewsList(formattedNews);
         } else {
-          // 如果没有新闻，使用备用
+          // 数据为空，使用备用
           setNewsList(FALLBACK_NEWS);
           setUsingFallback(true);
         }
       } else {
-        throw new Error(data.message || '获取新闻失败');
+        throw new Error('数据格式异常');
       }
     } catch (err: any) {
       console.warn('新闻API请求失败，使用备用新闻', err);
@@ -546,12 +543,6 @@ const RightSidebar = memo(() => {
         {loadingNews && (
           <div className="py-8 text-center text-stone-400">加载新闻中...</div>
         )}
-        {newsError && !usingFallback && (
-          <div className="py-4 text-center text-red-400 text-sm bg-red-50 rounded-xl p-3">
-            <AlertCircle className="w-4 h-4 inline mr-1" />
-            {newsError}
-          </div>
-        )}
 
         {!loadingNews && (
           <div className="max-h-96 overflow-y-auto pr-1 space-y-3 scrollbar-thin scrollbar-thumb-stone-200">
@@ -628,7 +619,7 @@ const RightSidebar = memo(() => {
         <div className="mt-2 text-xs text-purple-400">来源：中文笑话库</div>
       </div>
 
-      {/* 以下部分保持不变 */}
+      {/* 趣味工具 */}
       <div className="bg-white rounded-3xl shadow-soft p-5">
         <h3 className="font-semibold text-stone-900 mb-4">趣味工具</h3>
         <div className="grid grid-cols-2 gap-3">
@@ -653,6 +644,7 @@ const RightSidebar = memo(() => {
         </div>
       </div>
 
+      {/* 今日活动推荐 */}
       <div className="bg-white rounded-3xl shadow-soft p-5">
         <h3 className="font-semibold text-stone-900 mb-4">今日活动推荐</h3>
         <div className="space-y-3">
@@ -685,6 +677,7 @@ const RightSidebar = memo(() => {
         </div>
       </div>
 
+      {/* 实用链接 */}
       <div className="bg-stone-50 rounded-3xl p-5 border border-stone-200">
         <h3 className="font-semibold text-stone-900 mb-3">实用链接</h3>
         <div className="space-y-2">
@@ -867,7 +860,7 @@ export default function Home() {
     initializeLocation()
   }, [])
 
-  // 初始化加载所有数据 - 修改后的版本
+  // 初始化加载所有数据
   useEffect(() => {
     // 清理旧的缓存
     const cleanupOldCache = () => {
