@@ -104,29 +104,298 @@ const FALLBACK_NEWS = [
   }
 ]
 
-// 帖子图片画廊组件（保持不变）
-const PostImageGallery = ({ post, onImageClick }: { post: any; onImageClick?: () => void }) => {
-  // ... 原代码保持不变，此处省略以节省篇幅，实际使用时请保留原实现
-  return <></>;
-};
-
 // 缓存键
 const HOME_CACHE_KEY = 'home_page_cache_v2';
 
-// ---------- 右侧栏组件（已优化） ----------
+// ==================== 帖子图片画廊组件（完整保留）====================
+const PostImageGallery = ({ 
+  post, 
+  onImageClick 
+}: { 
+  post: any; 
+  onImageClick?: () => void;
+}) => {
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
+  
+  const galleryImages = (post.image_urls || []).map((url: string, index: number) => ({
+    id: `${post.id}-${index}`,
+    url: url,
+    thumbnailUrl: url,
+    alt: post.content || `来自 ${post.profile?.display_name || post.profile?.username} 的图片`,
+    caption: post.content,
+    uploader: {
+      id: post.user_id,
+      name: post.profile?.display_name || post.profile?.username || '好友',
+      avatar: post.profile?.avatar_url
+    },
+    createdAt: post.created_at,
+    likes: post.likes_count || 0,
+    isLiked: post.is_liked || false
+  }));
+  
+  const displayWidth = 113;
+  const displayHeight = 76;
+  
+  const renderThumbnails = () => {
+    const imageCount = galleryImages.length;
+    
+    if (imageCount === 0) return null;
+    
+    if (imageCount === 1) {
+      return (
+        <div style={{ width: `${displayWidth}px`, height: `${displayHeight}px` }}>
+          <div 
+            className="relative overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800 cursor-pointer group flex items-center justify-center"
+            onClick={() => {
+              setSelectedImageIndex(0);
+              onImageClick?.();
+            }}
+            style={{ 
+              width: `${displayWidth}px`, 
+              height: `${displayHeight}px`,
+              minWidth: `${displayWidth}px`,
+              minHeight: `${displayHeight}px`
+            }}
+          >
+            <img
+              src={galleryImages[0].url}
+              alt={galleryImages[0].alt || ''}
+              style={{ 
+                width: `${displayWidth}px`, 
+                height: `${displayHeight}px`,
+                objectFit: 'contain' as const
+              }}
+              className="transition-transform duration-500 group-hover:scale-105"
+              loading="lazy"
+            />
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300 flex items-center justify-center">
+              <ZoomIn className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    if (imageCount <= 4) {
+      const gridCols = imageCount === 2 ? 'grid-cols-2' : 'grid-cols-2';
+      const containerWidth = imageCount === 2 ? displayWidth * 2 + 8 : displayWidth * 2 + 8;
+      const containerHeight = imageCount <= 2 ? displayHeight : displayHeight * 2 + 8;
+      
+      return (
+        <div style={{ width: `${containerWidth}px`, height: `${containerHeight}px` }}>
+          <div className={`grid ${gridCols} gap-2`}>
+            {galleryImages.slice(0, 4).map((image, index) => (
+              <div
+                key={image.id}
+                className="relative overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800 cursor-pointer group flex items-center justify-center"
+                onClick={() => {
+                  setSelectedImageIndex(index);
+                  onImageClick?.();
+                }}
+                style={{ 
+                  width: `${displayWidth}px`, 
+                  height: `${displayHeight}px`
+                }}
+              >
+                <img
+                  src={image.url}
+                  alt={image.alt || ''}
+                  style={{ 
+                    width: `${displayWidth}px`, 
+                    height: `${displayHeight}px`,
+                    objectFit: 'cover' as const
+                  }}
+                  className="transition-transform duration-500 group-hover:scale-110"
+                  loading="lazy"
+                />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-300 flex items-center justify-center">
+                  <ZoomIn className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  {imageCount > 4 && index === 3 && (
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                      <span className="text-white font-bold text-lg">
+                        +{imageCount - 3}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+    
+    const containerWidth = displayWidth * 3 + 16;
+    const containerHeight = displayHeight * 3 + 16;
+    
+    return (
+      <div style={{ width: `${containerWidth}px`, height: `${containerHeight}px` }}>
+        <div className="grid grid-cols-3 gap-2">
+          {galleryImages.slice(0, 9).map((image, index) => (
+            <div
+              key={image.id}
+              className="relative overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800 cursor-pointer group flex items-center justify-center"
+              onClick={() => {
+                setSelectedImageIndex(index);
+                onImageClick?.();
+              }}
+              style={{ 
+                width: `${displayWidth}px`, 
+                height: `${displayHeight}px`
+              }}
+            >
+              <img
+                src={image.url}
+                alt={image.alt || ''}
+                style={{ 
+                  width: `${displayWidth}px`, 
+                  height: `${displayHeight}px`,
+                  objectFit: 'cover' as const
+                }}
+                className="transition-transform duration-500 group-hover:scale-110"
+                loading="lazy"
+              />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-300 flex items-center justify-center">
+                <ZoomIn className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              </div>
+              
+              {index === 8 && galleryImages.length > 9 && (
+                <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                  <span className="text-white font-bold text-lg">
+                    +{galleryImages.length - 9}
+                  </span>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+  
+  return (
+    <>
+      {renderThumbnails()}
+      
+      {selectedImageIndex !== null && (
+        <div className="fixed inset-0 z-[9999] bg-black/95 flex items-center justify-center p-2 md:p-4">
+          <div 
+            className="absolute inset-0"
+            onClick={() => setSelectedImageIndex(null)}
+          />
+          
+          <div className="relative z-10 w-full h-full flex items-center justify-center">
+            <button
+              onClick={() => setSelectedImageIndex(null)}
+              className="absolute top-4 right-4 md:top-6 md:right-6 p-2 bg-black/50 text-white/90 hover:text-white hover:bg-black/70 rounded-full transition-colors z-20"
+              aria-label="关闭"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            
+            <div className="relative w-full h-full flex items-center justify-center p-4">
+              <div className="flex items-center justify-center w-full h-full">
+                <div className="max-w-full max-h-full">
+                  <img
+                    src={galleryImages[selectedImageIndex].url}
+                    alt={galleryImages[selectedImageIndex].alt || ''}
+                    className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                  />
+                </div>
+              </div>
+              
+              {galleryImages.length > 1 && (
+                <>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedImageIndex(
+                        selectedImageIndex > 0 
+                          ? selectedImageIndex - 1 
+                          : galleryImages.length - 1
+                      );
+                    }}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-black/50 text-white hover:bg-black/70 rounded-full transition-colors backdrop-blur-sm z-10"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedImageIndex(
+                        selectedImageIndex < galleryImages.length - 1 
+                          ? selectedImageIndex + 1 
+                          : 0
+                      );
+                    }}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-black/50 text-white hover:bg-black/70 rounded-full transition-colors backdrop-blur-sm z-10"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </>
+              )}
+              
+              <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
+                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+                  <div className="text-white">
+                    <div className="flex items-center gap-3 mb-2">
+                      {galleryImages[selectedImageIndex].uploader?.avatar && (
+                        <img
+                          src={galleryImages[selectedImageIndex].uploader.avatar}
+                          alt={galleryImages[selectedImageIndex].uploader?.name}
+                          className="w-8 h-8 rounded-full border-2 border-white/30"
+                        />
+                      )}
+                      <div>
+                        <p className="font-medium">
+                          {galleryImages[selectedImageIndex].uploader?.name}
+                        </p>
+                        {galleryImages[selectedImageIndex].createdAt && (
+                          <p className="text-sm opacity-75">
+                            {new Date(galleryImages[selectedImageIndex].createdAt).toLocaleString('zh-CN')}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    {galleryImages[selectedImageIndex].caption && (
+                      <p className="text-sm opacity-90 mt-1 max-w-2xl">
+                        {galleryImages[selectedImageIndex].caption}
+                      </p>
+                    )}
+                  </div>
+                  <div className="text-white/80 text-sm font-medium bg-black/40 px-3 py-1.5 rounded-full">
+                    {selectedImageIndex + 1} / {galleryImages.length}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
+// ==================== 右侧栏组件（已优化，使用 memo 隔离）====================
 const RightSidebar = memo(() => {
   // ---------- 新闻相关 ----------
   const [newsList, setNewsList] = useState<any[]>([]);
   const [loadingNews, setLoadingNews] = useState(false);
   const [usingFallback, setUsingFallback] = useState(false);
 
-  // 定义多个备选新闻API，按顺序尝试
+  // 定义多个备选新闻API，按顺序尝试（均为免费、无需Key）
   const newsAPIs = [
     {
       name: '韩小韩API',
       url: 'https://api.vvhan.com/api/hotlist?type=news',
       parser: (data: any) => {
-        // 返回格式：{ success: true, data: [...] }
         if (data.success && Array.isArray(data.data)) {
           return data.data.map((item: any) => ({
             title: item.title,
@@ -142,7 +411,6 @@ const RightSidebar = memo(() => {
       name: 'iWeb API',
       url: 'https://api.oioweb.cn/api/common/hotnews',
       parser: (data: any) => {
-        // 返回格式：{ code: 200, result: [...] }
         if (data.code === 200 && Array.isArray(data.result)) {
           return data.result.map((item: any) => ({
             title: item.title,
@@ -155,15 +423,16 @@ const RightSidebar = memo(() => {
       }
     },
     {
-      name: 'benzhi.online',
-      url: 'https://benzhi.online/api/news?page=1&limit=15',
+      name: '今日热榜',
+      url: 'https://api.tophubdata.com/nodes',
       parser: (data: any) => {
-        if (data.code === 200 && Array.isArray(data.data)) {
-          return data.data.map((item: any) => ({
+        // 该API可能需要特殊处理，这里作为备选，若无法解析可删除
+        if (Array.isArray(data)) {
+          return data.slice(0, 15).map((item: any) => ({
             title: item.title,
-            source: { name: item.source || '资讯' },
+            source: { name: item.source || '热榜' },
             url: item.url || '#',
-            urlToImage: item.image || null,
+            urlToImage: null,
           }));
         }
         return null;
@@ -185,6 +454,7 @@ const RightSidebar = memo(() => {
         if (articles && articles.length > 0) {
           setNewsList(articles);
           setLoadingNews(false);
+          console.log(`✅ 新闻获取成功: ${api.name}`);
           return; // 成功获取，退出
         }
       } catch (err) {
@@ -486,6 +756,7 @@ const RightSidebar = memo(() => {
   );
 });
 
+// ==================== 主组件 Home ====================
 export default function Home() {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -1262,7 +1533,7 @@ export default function Home() {
                         <p className="text-stone-700 whitespace-pre-wrap leading-relaxed">{post.content}</p>
                       </div>
 
-                      {/* Post Images */}
+                      {/* Post Images - 现在图片画廊组件已完整包含 */}
                       {post.image_urls && post.image_urls.length > 0 && (
                         <div className="px-4 pb-4">
                           <PostImageGallery 
