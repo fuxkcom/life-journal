@@ -70,37 +70,55 @@ const CHINESE_JOKES = [
   "为什么科学家不信任原子？因为它们构成了一切！",
 ]
 
-// 备用新闻数据（当所有API都失败时使用）
+// 备用新闻数据（当所有API都失败时使用，图片使用稳定占位服务）
 const FALLBACK_NEWS = [
   {
     title: "我国成功发射遥感四十二号02星",
     source: { name: "央视新闻" },
     url: "https://news.cctv.com/",
-    urlToImage: "https://picsum.photos/200/150?random=1"
+    urlToImage: "https://placehold.co/200x150/1e3a8a/ffffff?text=CCTV"
   },
   {
     title: "全国人大代表建议减轻家庭养育负担",
     source: { name: "人民日报" },
     url: "https://www.people.com.cn/",
-    urlToImage: "https://picsum.photos/200/150?random=2"
+    urlToImage: "https://placehold.co/200x150/b91c1c/ffffff?text=People"
   },
   {
     title: "新能源汽车市场竞争加剧，多家车企宣布降价",
     source: { name: "财新网" },
     url: "https://www.caixin.com/",
-    urlToImage: "https://picsum.photos/200/150?random=3"
+    urlToImage: "https://placehold.co/200x150/047857/ffffff?text=Caixin"
   },
   {
     title: "清明假期全国铁路预计发送旅客7500万人次",
     source: { name: "中国新闻网" },
     url: "https://www.chinanews.com.cn/",
-    urlToImage: "https://picsum.photos/200/150?random=4"
+    urlToImage: "https://placehold.co/200x150/a16207/ffffff?text=ChinaNews"
   },
   {
     title: "国际金价再创新高，突破2300美元/盎司",
     source: { name: "华尔街见闻" },
     url: "https://wallstreetcn.com/",
-    urlToImage: "https://picsum.photos/200/150?random=5"
+    urlToImage: "https://placehold.co/200x150/0f172a/ffffff?text=Wallstreet"
+  },
+  {
+    title: "淘宝宣布支持微信支付，互联互通再进一步",
+    source: { name: "界面新闻" },
+    url: "https://www.jiemian.com/",
+    urlToImage: "https://placehold.co/200x150/2563eb/ffffff?text=JieMian"
+  },
+  {
+    title: "华为三折叠手机预订量突破300万",
+    source: { name: "快科技" },
+    url: "https://www.techweb.com.cn/",
+    urlToImage: "https://placehold.co/200x150/16a34a/ffffff?text=Huawei"
+  },
+  {
+    title: "中秋国庆假期火车票开售，热门线路一票难求",
+    source: { name: "中国铁路" },
+    url: "http://www.12306.cn/",
+    urlToImage: "https://placehold.co/200x150/92400e/ffffff?text=Railway"
   }
 ]
 
@@ -383,56 +401,44 @@ const PostImageGallery = ({
   );
 };
 
-// ==================== 右侧栏组件（已优化，使用 memo 隔离）====================
+// ==================== 右侧栏组件（支持双API + 备用）====================
 const RightSidebar = memo(() => {
   // ---------- 新闻相关 ----------
   const [newsList, setNewsList] = useState<any[]>([]);
   const [loadingNews, setLoadingNews] = useState(false);
   const [usingFallback, setUsingFallback] = useState(false);
 
-  // 定义多个备选新闻API，按顺序尝试（均为免费、无需Key）
+  // API Key（请替换为您自己的）
+  const NEWS_API_KEY = 'c51e13d7fe614683a9c920d80b66570e';        // 替换为您的NewsAPI.org密钥
+  const GNEWS_API_KEY = '9ee63684c51583811cae9afefb844984';      // 替换为您的GNews密钥
+
+  // 定义两个支持CORS的真实新闻API
   const newsAPIs = [
     {
-      name: '韩小韩API',
-      url: 'https://api.vvhan.com/api/hotlist?type=news',
+      name: 'NewsAPI.org',
+      url: `https://newsapi.org/v2/top-headlines?country=cn&pageSize=10&apiKey=${NEWS_API_KEY}`,
       parser: (data: any) => {
-        if (data.success && Array.isArray(data.data)) {
-          return data.data.map((item: any) => ({
+        if (data.status === 'ok' && Array.isArray(data.articles)) {
+          return data.articles.map((item: any) => ({
             title: item.title,
-            source: { name: item.info || item.source || '热点' },
-            url: item.url || '#',
-            urlToImage: item.pic || null,
+            source: { name: item.source?.name || '资讯' },
+            url: item.url,
+            urlToImage: item.urlToImage || null,
           }));
         }
         return null;
       }
     },
     {
-      name: 'iWeb API',
-      url: 'https://api.oioweb.cn/api/common/hotnews',
+      name: 'GNews API',
+      url: `https://gnews.io/api/v4/top-headlines?country=cn&token=${GNEWS_API_KEY}&lang=zh&max=10`,
       parser: (data: any) => {
-        if (data.code === 200 && Array.isArray(data.result)) {
-          return data.result.map((item: any) => ({
+        if (Array.isArray(data.articles)) {
+          return data.articles.map((item: any) => ({
             title: item.title,
-            source: { name: item.author || '资讯' },
-            url: item.url || '#',
-            urlToImage: item.cover || null,
-          }));
-        }
-        return null;
-      }
-    },
-    {
-      name: '今日热榜',
-      url: 'https://api.tophubdata.com/nodes',
-      parser: (data: any) => {
-        // 该API可能需要特殊处理，这里作为备选，若无法解析可删除
-        if (Array.isArray(data)) {
-          return data.slice(0, 15).map((item: any) => ({
-            title: item.title,
-            source: { name: item.source || '热榜' },
-            url: item.url || '#',
-            urlToImage: null,
+            source: { name: item.source?.name || '资讯' },
+            url: item.url,
+            urlToImage: item.image || null,
           }));
         }
         return null;
@@ -440,7 +446,7 @@ const RightSidebar = memo(() => {
     }
   ];
 
-  // 获取真实新闻（依次尝试多个API）
+  // 获取真实新闻（依次尝试两个API）
   const fetchRealNews = async () => {
     setLoadingNews(true);
     setUsingFallback(false);
@@ -455,15 +461,14 @@ const RightSidebar = memo(() => {
           setNewsList(articles);
           setLoadingNews(false);
           console.log(`✅ 新闻获取成功: ${api.name}`);
-          return; // 成功获取，退出
+          return;
         }
       } catch (err) {
         console.warn(`新闻API ${api.name} 请求失败`, err);
-        // 继续尝试下一个
       }
     }
 
-    // 所有API都失败，使用备用新闻
+    // 两个API都失败，使用备用新闻
     console.warn('所有新闻API均失败，使用备用新闻');
     setNewsList(FALLBACK_NEWS);
     setUsingFallback(true);
@@ -555,7 +560,7 @@ const RightSidebar = memo(() => {
 
   return (
     <div className="space-y-6">
-      {/* 实时资讯（多API尝试 + 备用） */}
+      {/* 实时资讯（双API + 备用） */}
       <div className="bg-white rounded-3xl shadow-soft p-5">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
@@ -654,7 +659,7 @@ const RightSidebar = memo(() => {
         <div className="mt-2 text-xs text-purple-400">来源：中文笑话库</div>
       </div>
 
-      {/* 以下部分保持不变 */}
+      {/* 趣味工具 */}
       <div className="bg-white rounded-3xl shadow-soft p-5">
         <h3 className="font-semibold text-stone-900 mb-4">趣味工具</h3>
         <div className="grid grid-cols-2 gap-3">
@@ -679,6 +684,7 @@ const RightSidebar = memo(() => {
         </div>
       </div>
 
+      {/* 今日活动推荐 */}
       <div className="bg-white rounded-3xl shadow-soft p-5">
         <h3 className="font-semibold text-stone-900 mb-4">今日活动推荐</h3>
         <div className="space-y-3">
@@ -711,6 +717,7 @@ const RightSidebar = memo(() => {
         </div>
       </div>
 
+      {/* 实用链接 */}
       <div className="bg-stone-50 rounded-3xl p-5 border border-stone-200">
         <h3 className="font-semibold text-stone-900 mb-3">实用链接</h3>
         <div className="space-y-2">
@@ -1533,7 +1540,7 @@ export default function Home() {
                         <p className="text-stone-700 whitespace-pre-wrap leading-relaxed">{post.content}</p>
                       </div>
 
-                      {/* Post Images - 现在图片画廊组件已完整包含 */}
+                      {/* Post Images - 使用完整的画廊组件 */}
                       {post.image_urls && post.image_urls.length > 0 && (
                         <div className="px-4 pb-4">
                           <PostImageGallery 
