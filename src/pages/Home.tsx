@@ -401,78 +401,53 @@ const PostImageGallery = ({
   );
 };
 
-// ==================== 右侧栏组件（支持双API + 备用）====================
+// ==================== 右侧栏组件（使用 Mediastack API）====================
 const RightSidebar = memo(() => {
   // ---------- 新闻相关 ----------
   const [newsList, setNewsList] = useState<any[]>([]);
   const [loadingNews, setLoadingNews] = useState(false);
   const [usingFallback, setUsingFallback] = useState(false);
 
-  // API Key（请替换为您自己的）
-  const NEWS_API_KEY = 'c51e13d7fe614683a9c920d80b66570e';        // 替换为您的NewsAPI.org密钥
-  const GNEWS_API_KEY = '9ee63684c51583811cae9afefb844984';      // 替换为您的GNews密钥
-
-  // 定义两个支持CORS的真实新闻API
-  const newsAPIs = [
-    {
-      name: 'NewsAPI.org',
-      url: `https://newsapi.org/v2/top-headlines?country=cn&pageSize=10&apiKey=${NEWS_API_KEY}`,
-      parser: (data: any) => {
-        if (data.status === 'ok' && Array.isArray(data.articles)) {
-          return data.articles.map((item: any) => ({
-            title: item.title,
-            source: { name: item.source?.name || '资讯' },
-            url: item.url,
-            urlToImage: item.urlToImage || null,
-          }));
-        }
-        return null;
-      }
-    },
-    {
-      name: 'GNews API',
-      url: `https://gnews.io/api/v4/top-headlines?country=cn&token=${GNEWS_API_KEY}&lang=zh&max=10`,
-      parser: (data: any) => {
-        if (Array.isArray(data.articles)) {
-          return data.articles.map((item: any) => ({
-            title: item.title,
-            source: { name: item.source?.name || '资讯' },
-            url: item.url,
-            urlToImage: item.image || null,
-          }));
-        }
-        return null;
-      }
-    }
-  ];
-
-  // 获取真实新闻（依次尝试两个API）
+  // Mediastack API 配置（请替换为您自己的 API Key）
+  const MEDIASTACK_API_KEY = 'e8b307370312ed9c584e09e7a1e561dd'; // 免费注册：https://mediastack.com/signup
+  
+  // 获取真实新闻（Mediastack）
   const fetchRealNews = async () => {
     setLoadingNews(true);
     setUsingFallback(false);
 
-    for (const api of newsAPIs) {
-      try {
-        const res = await fetch(api.url);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        const articles = api.parser(data);
-        if (articles && articles.length > 0) {
-          setNewsList(articles);
-          setLoadingNews(false);
-          console.log(`✅ 新闻获取成功: ${api.name}`);
-          return;
-        }
-      } catch (err) {
-        console.warn(`新闻API ${api.name} 请求失败`, err);
+    try {
+      // 构建请求URL - 获取中文新闻，限制10条
+      const url = `http://api.mediastack.com/v1/news?access_key=${MEDIASTACK_API_KEY}&countries=cn&languages=zh&limit=10&sort=published_desc`;
+      
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      
+      const data = await res.json();
+      console.log('Mediastack API 返回数据:', data); // 调试用
+      
+      // 解析数据 - Mediastack 返回格式为 { pagination: {...}, data: [...] }
+      if (data && Array.isArray(data.data) && data.data.length > 0) {
+        const articles = data.data.map((item: any) => ({
+          title: item.title,
+          source: { name: item.source || '资讯' },
+          url: item.url,
+          urlToImage: item.image || null, // 有些文章可能没有图片
+          description: item.description,
+          published_at: item.published_at
+        }));
+        setNewsList(articles);
+        console.log('✅ Mediastack 新闻获取成功');
+      } else {
+        throw new Error('返回数据格式异常或为空');
       }
+    } catch (err) {
+      console.warn('Mediastack API 请求失败，使用备用新闻', err);
+      setNewsList(FALLBACK_NEWS);
+      setUsingFallback(true);
+    } finally {
+      setLoadingNews(false);
     }
-
-    // 两个API都失败，使用备用新闻
-    console.warn('所有新闻API均失败，使用备用新闻');
-    setNewsList(FALLBACK_NEWS);
-    setUsingFallback(true);
-    setLoadingNews(false);
   };
 
   // 初始化加载新闻
@@ -480,7 +455,7 @@ const RightSidebar = memo(() => {
     fetchRealNews();
   }, []);
 
-  // ---------- 趣味知识 & 每日一笑 ----------
+  // ---------- 趣味知识 & 每日一笑（保持不变）----------
   const [chineseFunFact, setChineseFunFact] = useState('');
   const [chineseJoke, setChineseJoke] = useState('');
 
@@ -560,7 +535,7 @@ const RightSidebar = memo(() => {
 
   return (
     <div className="space-y-6">
-      {/* 实时资讯（双API + 备用） */}
+      {/* 实时资讯（Mediastack + 备用） */}
       <div className="bg-white rounded-3xl shadow-soft p-5">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
