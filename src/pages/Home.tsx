@@ -70,7 +70,7 @@ const CHINESE_JOKES = [
   "为什么科学家不信任原子？因为它们构成了一切！",
 ]
 
-// 备用新闻数据（当所有API都失败时使用，图片使用稳定占位服务）
+// 备用新闻数据（当API失败时使用，图片使用稳定占位服务）
 const FALLBACK_NEWS = [
   {
     title: "我国成功发射遥感四十二号02星",
@@ -401,26 +401,26 @@ const PostImageGallery = ({
   );
 };
 
+// ==================== 右侧栏组件（使用 benzhi.online 国内稳定API）====================
 const RightSidebar = memo(() => {
-  // 新闻状态
+  // ---------- 新闻相关 ----------
   const [newsList, setNewsList] = useState<any[]>([]);
   const [loadingNews, setLoadingNews] = useState(false);
   const [usingFallback, setUsingFallback] = useState(false);
 
-  // benzhi.online 新闻获取（国内稳定，无限免费）
+  // 获取真实新闻（benzhi.online，国内稳定，无需Key）
   const fetchRealNews = async () => {
     setLoadingNews(true);
     setUsingFallback(false);
 
     try {
-      // 完全免费，无需Key
       const url = 'https://benzhi.online/api/news?page=1&limit=15';
       const res = await fetch(url);
       
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       
       const data = await res.json();
-      console.log('新闻API返回:', data);
+      console.log('benzhi.online 返回数据:', data);
       
       if (data.code === 200 && Array.isArray(data.data)) {
         const articles = data.data.map((item: any) => ({
@@ -434,7 +434,7 @@ const RightSidebar = memo(() => {
         throw new Error('数据格式异常');
       }
     } catch (err) {
-      console.warn('新闻API失败，使用备用', err);
+      console.warn('benzhi.online 请求失败，使用备用新闻', err);
       setNewsList(FALLBACK_NEWS);
       setUsingFallback(true);
     } finally {
@@ -442,76 +442,12 @@ const RightSidebar = memo(() => {
     }
   };
 
+  // 初始化加载新闻
   useEffect(() => {
     fetchRealNews();
   }, []);
 
-  // 趣味知识、每日一笑、工具、活动推荐等部分保持不变
-  // ...（保留原有代码）
-
-  return (
-    <div className="space-y-6">
-      {/* 新闻模块 */}
-      <div className="bg-white rounded-3xl shadow-soft p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Newspaper className="w-5 h-5 text-terracotta-500" />
-            <h3 className="font-semibold text-stone-900">实时资讯</h3>
-            {usingFallback && (
-              <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">本地</span>
-            )}
-          </div>
-          <button
-            onClick={fetchRealNews}
-            className="text-xs text-stone-400 hover:text-terracotta-500 flex items-center gap-1"
-            disabled={loadingNews}
-          >
-            <RefreshCw className={`w-3 h-3 ${loadingNews ? 'animate-spin' : ''}`} />
-            刷新
-          </button>
-        </div>
-
-        {loadingNews && (
-          <div className="py-8 text-center text-stone-400">加载新闻中...</div>
-        )}
-
-        {!loadingNews && (
-          <div className="max-h-96 overflow-y-auto space-y-3 scrollbar-thin">
-            {newsList.map((item, idx) => (
-              <a
-                key={idx}
-                href={item.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block p-3 rounded-xl hover:bg-stone-50 border border-stone-100"
-              >
-                <div className="flex items-start gap-3">
-                  {item.urlToImage && (
-                    <img
-                      src={item.urlToImage}
-                      alt=""
-                      className="w-16 h-16 object-cover rounded-lg shrink-0"
-                      onError={(e) => (e.currentTarget.style.display = 'none')}
-                    />
-                  )}
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-stone-900 line-clamp-2">
-                      {item.title}
-                    </p>
-                    <div className="flex items-center justify-between mt-1">
-                      <span className="text-xs text-stone-400">
-                        {item.source?.name}
-                      </span>
-                      <ExternalLink className="w-3 h-3 text-stone-300" />
-                    </div>
-                  </div>
-                </div>
-              </a>
-            ))}
-          </div>
-        )}
-
-  // ---------- 趣味知识 & 每日一笑（保持不变）----------
+  // ---------- 趣味知识 & 每日一笑 ----------
   const [chineseFunFact, setChineseFunFact] = useState('');
   const [chineseJoke, setChineseJoke] = useState('');
 
@@ -591,14 +527,14 @@ const RightSidebar = memo(() => {
 
   return (
     <div className="space-y-6">
-      {/* 实时资讯（Mediastack + 备用） */}
+      {/* 实时资讯（benzhi.online + 备用） */}
       <div className="bg-white rounded-3xl shadow-soft p-5">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Newspaper className="w-5 h-5 text-terracotta-500" />
             <h3 className="font-semibold text-stone-900">实时资讯</h3>
             {usingFallback && (
-              <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">离线模式</span>
+              <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">备用</span>
             )}
           </div>
           <button
@@ -827,7 +763,7 @@ export default function Home() {
     return DAILY_QUOTES[dayOfYear % DAILY_QUOTES.length]
   }, [])
 
-  // 修改后的 loadAllData 函数 - 支持静默模式
+  // loadAllData 函数 - 支持静默模式
   const loadAllData = async (silent = false) => {
     if (!silent) {
       setLoading(true);
@@ -1571,7 +1507,7 @@ export default function Home() {
                         <p className="text-stone-700 whitespace-pre-wrap leading-relaxed">{post.content}</p>
                       </div>
 
-                      {/* Post Images - 使用完整的画廊组件 */}
+                      {/* Post Images */}
                       {post.image_urls && post.image_urls.length > 0 && (
                         <div className="px-4 pb-4">
                           <PostImageGallery 
