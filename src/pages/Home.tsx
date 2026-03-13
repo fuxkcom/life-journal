@@ -510,7 +510,6 @@ const RightSidebar = memo(() => {
             ))}
           </div>
         )}
-      </div>
 
   // ---------- 趣味知识 & 每日一笑（保持不变）----------
   const [chineseFunFact, setChineseFunFact] = useState('');
