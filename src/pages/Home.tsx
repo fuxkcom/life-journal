@@ -401,48 +401,40 @@ const PostImageGallery = ({
   );
 };
 
-// ==================== 右侧栏组件（使用 Mediastack API）====================
 const RightSidebar = memo(() => {
-  // ---------- 新闻相关 ----------
+  // 新闻状态
   const [newsList, setNewsList] = useState<any[]>([]);
   const [loadingNews, setLoadingNews] = useState(false);
   const [usingFallback, setUsingFallback] = useState(false);
 
-  // Mediastack API 配置（请替换为您自己的 API Key）
-  const MEDIASTACK_API_KEY = 'e8b307370312ed9c584e09e7a1e561dd'; // 免费注册：https://mediastack.com/signup
-  
-  // 获取真实新闻（Mediastack）
+  // benzhi.online 新闻获取（国内稳定，无限免费）
   const fetchRealNews = async () => {
     setLoadingNews(true);
     setUsingFallback(false);
 
     try {
-      // 构建请求URL - 获取中文新闻，限制10条
-      const url = `http://api.mediastack.com/v1/news?access_key=${MEDIASTACK_API_KEY}&countries=cn&languages=zh&limit=10&sort=published_desc`;
-      
+      // 完全免费，无需Key
+      const url = 'https://benzhi.online/api/news?page=1&limit=15';
       const res = await fetch(url);
+      
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       
       const data = await res.json();
-      console.log('Mediastack API 返回数据:', data); // 调试用
+      console.log('新闻API返回:', data);
       
-      // 解析数据 - Mediastack 返回格式为 { pagination: {...}, data: [...] }
-      if (data && Array.isArray(data.data) && data.data.length > 0) {
+      if (data.code === 200 && Array.isArray(data.data)) {
         const articles = data.data.map((item: any) => ({
           title: item.title,
           source: { name: item.source || '资讯' },
-          url: item.url,
-          urlToImage: item.image || null, // 有些文章可能没有图片
-          description: item.description,
-          published_at: item.published_at
+          url: item.url || '#',
+          urlToImage: item.image || null,
         }));
         setNewsList(articles);
-        console.log('✅ Mediastack 新闻获取成功');
       } else {
-        throw new Error('返回数据格式异常或为空');
+        throw new Error('数据格式异常');
       }
     } catch (err) {
-      console.warn('Mediastack API 请求失败，使用备用新闻', err);
+      console.warn('新闻API失败，使用备用', err);
       setNewsList(FALLBACK_NEWS);
       setUsingFallback(true);
     } finally {
@@ -450,10 +442,75 @@ const RightSidebar = memo(() => {
     }
   };
 
-  // 初始化加载新闻
   useEffect(() => {
     fetchRealNews();
   }, []);
+
+  // 趣味知识、每日一笑、工具、活动推荐等部分保持不变
+  // ...（保留原有代码）
+
+  return (
+    <div className="space-y-6">
+      {/* 新闻模块 */}
+      <div className="bg-white rounded-3xl shadow-soft p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Newspaper className="w-5 h-5 text-terracotta-500" />
+            <h3 className="font-semibold text-stone-900">实时资讯</h3>
+            {usingFallback && (
+              <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">本地</span>
+            )}
+          </div>
+          <button
+            onClick={fetchRealNews}
+            className="text-xs text-stone-400 hover:text-terracotta-500 flex items-center gap-1"
+            disabled={loadingNews}
+          >
+            <RefreshCw className={`w-3 h-3 ${loadingNews ? 'animate-spin' : ''}`} />
+            刷新
+          </button>
+        </div>
+
+        {loadingNews && (
+          <div className="py-8 text-center text-stone-400">加载新闻中...</div>
+        )}
+
+        {!loadingNews && (
+          <div className="max-h-96 overflow-y-auto space-y-3 scrollbar-thin">
+            {newsList.map((item, idx) => (
+              <a
+                key={idx}
+                href={item.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block p-3 rounded-xl hover:bg-stone-50 border border-stone-100"
+              >
+                <div className="flex items-start gap-3">
+                  {item.urlToImage && (
+                    <img
+                      src={item.urlToImage}
+                      alt=""
+                      className="w-16 h-16 object-cover rounded-lg shrink-0"
+                      onError={(e) => (e.currentTarget.style.display = 'none')}
+                    />
+                  )}
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-stone-900 line-clamp-2">
+                      {item.title}
+                    </p>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-xs text-stone-400">
+                        {item.source?.name}
+                      </span>
+                      <ExternalLink className="w-3 h-3 text-stone-300" />
+                    </div>
+                  </div>
+                </div>
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
 
   // ---------- 趣味知识 & 每日一笑（保持不变）----------
   const [chineseFunFact, setChineseFunFact] = useState('');
