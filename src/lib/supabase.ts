@@ -1,7 +1,16 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://srbhrbkwwmlkkrivbvby.supabase.co'
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNyYmhyYmt3d21sa2tyaXZidmJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc5NDIwOTUsImV4cCI6MjA4MzUxODA5NX0.w5f-U3pzNpuuq-35ElllfgVl1Ogq8n7Ttct0ESxZ-vI'
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  // 不再把生产环境的真实值硬编码在源码里当 fallback：
+  // 一旦环境变量缺失就应该在构建/启动时立刻报错，而不是静默用一个写死的项目。
+  throw new Error(
+    '缺少 Supabase 环境变量：请设置 VITE_SUPABASE_URL 和 VITE_SUPABASE_ANON_KEY（参考 .env.example）'
+  )
+}
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 export type Profile = {

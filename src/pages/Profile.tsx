@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { Camera, Save, Loader2, Lock, Eye, EyeOff, Check, X } from 'lucide-react'
 import Layout from '../components/Layout'
+import { compressImage } from '../utils/imageCompression'
 
 function validatePassword(password: string) {
   const minLength = password.length >= 8
@@ -80,8 +81,10 @@ export default function Profile() {
 
     setAvatarUploading(true)
     try {
-      const fileName = `${user.id}/${Date.now()}.${file.name.split('.').pop()}`
-      const { data, error } = await supabase.storage.from('avatars').upload(fileName, file, { upsert: true })
+      // 头像不需要太大，压缩到 512px 即可，显著减少存储和加载体积
+      const compressedFile = await compressImage(file, { maxDimension: 512, quality: 0.85 })
+      const fileName = `${user.id}/${Date.now()}.${compressedFile.name.split('.').pop()}`
+      const { data, error } = await supabase.storage.from('avatars').upload(fileName, compressedFile, { upsert: true })
       
       if (!error && data) {
         const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(data.path)
