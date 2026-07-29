@@ -36,3 +36,62 @@ img {
 .fixed {
   position: fixed;
 }
+
+/* ==================== 日记本视觉主题 ==================== */
+
+body {
+  font-family: 'Noto Sans SC', Inter, system-ui, -apple-system, sans-serif;
+}
+
+/* 标题统一使用中文衬线字体 */
+.journal-title {
+  font-family: 'Noto Serif SC', Georgia, serif;
+}
+
+/* 手写体点缀：日期戳、心情标签、每日一句等 */
+.journal-hand {
+  font-family: 'Zhi Mang Xing', 'Noto Sans SC', cursive;
+}
+
+/* 笔记本页边线：卡片左侧一道砖红色竖线，呼应横线笔记本的装订边，
+   是整站唯一重复使用的视觉签名元素，仅用于最核心的卡片（首页顶部、动态卡片）。 */
+.journal-card {
+  position: relative;
+  background: #FFFDF7;
+  border-radius: 20px;
+  box-shadow: 0 4px 20px rgba(178, 58, 72, 0.08);
+  padding-left: 1.75rem;
+}
+
+.journal-card::before {
+  content: '';
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  bottom: 14px;
+  width: 2px;
+  background: rgba(178, 58, 72, 0.35);
+  border-radius: 1px;
+}
+
+/* 极淡的横线笔记本纹理，仅用于页面主背景，克制不抢内容 */
+.journal-ruled-bg {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent,
+    transparent 35px,
+    rgba(178, 58, 72, 0.05) 35px,
+    rgba(178, 58, 72, 0.05) 36px
+  );
+}
+
+/* 圆形印章式徽标：连续记录天数等强调数字 */
+.journal-stamp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1.5px solid rgba(178, 58, 72, 0.4);
+  color: #B23A48;
+}
+
