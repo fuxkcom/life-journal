@@ -23,15 +23,12 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: |
-          # 确保 axios 被安装
-          pnpm add axios
-          # 安装项目所有依赖
-          pnpm install
-          # 安装 TypeScript 类型声明
-          pnpm add -D @types/node @types/react @types/react-dom @types/axios
+        run: pnpm install
 
       - name: Build project
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: pnpm run build
 
       - name: Setup Pages
