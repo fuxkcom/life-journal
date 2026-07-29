@@ -124,6 +124,17 @@ const FALLBACK_NEWS = [
 
 // 缓存键
 const HOME_CACHE_KEY = 'home_page_cache_v2';
+// 新闻缓存键：接口不可用时，优先展示上一次成功获取的真实新闻，而不是直接跳到写死的兜底数据
+const NEWS_CACHE_KEY = 'home_news_cache_v1';
+const NEWS_CACHE_MAX_AGE = 30 * 60 * 1000; // 30 分钟内的缓存视为新鲜
+const NEWS_FETCH_TIMEOUT = 8000; // 请求超时时间，避免接口挂起导致"加载中"卡死
+
+interface NewsItem {
+  title: string
+  source: { name: string }
+  url: string
+  urlToImage: string | null
+}
 
 // ==================== 帖子图片画廊组件（完整保留）====================
 const PostImageGallery = ({ 
@@ -404,40 +415,73 @@ const PostImageGallery = ({
 // ==================== 右侧栏组件（使用 benzhi.online 国内稳定API）====================
 const RightSidebar = memo(() => {
   // ---------- 新闻相关 ----------
-  const [newsList, setNewsList] = useState<any[]>([]);
+  const [newsList, setNewsList] = useState<NewsItem[]>([]);
   const [loadingNews, setLoadingNews] = useState(false);
   const [usingFallback, setUsingFallback] = useState(false);
+  const [newsError, setNewsError] = useState(false);
 
-  // 获取真实新闻（benzhi.online，国内稳定，无需Key）
+  // 获取真实新闻。接口不稳定（第三方免费接口，无 SLA 保证），
+  // 因此加了超时保护、失败时优先用上次成功的缓存兜底，
+  // 只有连缓存都没有时才展示写死的静态兜底列表。
   const fetchRealNews = async () => {
     setLoadingNews(true);
-    setUsingFallback(false);
+    setNewsError(false);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), NEWS_FETCH_TIMEOUT);
 
     try {
       const url = 'https://benzhi.online/api/news?page=1&limit=15';
-      const res = await fetch(url);
-      
+      const res = await fetch(url, { signal: controller.signal });
+
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      
+
       const data = await res.json();
-      console.log('benzhi.online 返回数据:', data);
-      
-      if (data.code === 200 && Array.isArray(data.data)) {
-        const articles = data.data.map((item: any) => ({
+
+      if (data.code === 200 && Array.isArray(data.data) && data.data.length > 0) {
+        const articles: NewsItem[] = data.data.map((item: any) => ({
           title: item.title,
           source: { name: item.source || '资讯' },
           url: item.url || '#',
           urlToImage: item.image || null,
         }));
         setNewsList(articles);
+        setUsingFallback(false);
+        // 成功获取时写入缓存，供接口下次不可用时使用
+        try {
+          sessionStorage.setItem(
+            NEWS_CACHE_KEY,
+            JSON.stringify({ articles, timestamp: Date.now() })
+          );
+        } catch {
+          // 缓存写入失败不影响主流程（比如隐私模式下 sessionStorage 受限）
+        }
       } else {
         throw new Error('数据格式异常');
       }
     } catch (err) {
-      console.warn('benzhi.online 请求失败，使用备用新闻', err);
-      setNewsList(FALLBACK_NEWS);
+      console.warn('新闻接口请求失败，尝试使用缓存或备用数据', err);
+      setNewsError(true);
+
+      // 优先用上次成功获取的真实新闻缓存（30 分钟内有效）
+      try {
+        const cached = sessionStorage.getItem(NEWS_CACHE_KEY);
+        if (cached) {
+          const { articles, timestamp } = JSON.parse(cached);
+          if (Date.now() - timestamp < NEWS_CACHE_MAX_AGE && Array.isArray(articles) && articles.length > 0) {
+            setNewsList(articles);
+            setUsingFallback(false);
+            return;
+          }
+        }
+      } catch {
+        // 缓存解析失败就直接走静态兜底
+      }
+
+      setNewsList([...FALLBACK_NEWS].sort(() => Math.random() - 0.5));
       setUsingFallback(true);
     } finally {
+      clearTimeout(timeoutId);
       setLoadingNews(false);
     }
   };
@@ -534,7 +578,9 @@ const RightSidebar = memo(() => {
             <Newspaper className="w-5 h-5 text-terracotta-500" />
             <h3 className="font-semibold text-stone-900">实时资讯</h3>
             {usingFallback && (
-              <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">备用</span>
+              <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full" title="新闻接口暂时无法访问，当前展示的是精选内容">
+                精选
+              </span>
             )}
           </div>
           <button
@@ -1180,6 +1226,39 @@ export default function Home() {
     if (last7Days.length === 0) return null
     const avg = last7Days.reduce((sum, m) => sum + moodScores[m.mood_type], 0) / last7Days.length
     return avg
+  }, [moods])
+
+  // 连续打卡天数：从今天（或昨天，如果今天还没记录）往前数，看心情记录是否连续
+  const moodStreak = useMemo(() => {
+    if (moods.length === 0) return 0
+    const days = new Set(moods.map(m => new Date(m.created_at).toDateString()))
+    const countFrom = (start: Date) => {
+      let count = 0
+      const cursor = new Date(start)
+      cursor.setHours(0, 0, 0, 0)
+      while (days.has(cursor.toDateString())) {
+        count++
+        cursor.setDate(cursor.getDate() - 1)
+      }
+      return count
+    }
+    const today = countFrom(new Date())
+    if (today > 0) return today
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+    return countFrom(yesterday)
+  }, [moods])
+
+  // 近 14 次心情记录，供趋势小图表使用（按时间正序排列）
+  const moodChartData = useMemo(() => {
+    const moodScores: Record<string, number> = { happy: 5, smile: 4, neutral: 3, sad: 2, angry: 1 }
+    return [...moods]
+      .slice(0, 14)
+      .reverse()
+      .map((m) => ({
+        date: new Date(m.created_at).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' }),
+        score: moodScores[m.mood_type],
+      }))
   }, [moods])
 
   if (loading) {
