@@ -20,6 +20,7 @@ import { Link } from 'react-router-dom'
 import Layout from '../components/Layout'
 import DateTime from '../components/DateTime'
 import Weather from '../components/Weather'
+import { ResponsiveContainer, LineChart, Line, YAxis, Tooltip } from 'recharts'
 
 // 导入位置工具函数
 import { getGeolocation, saveLocationToStorage } from '../utils/location'
@@ -412,7 +413,22 @@ const PostImageGallery = ({
   );
 };
 
-// ==================== 右侧栏组件（使用 benzhi.online 国内稳定API）====================
+// ==================== 右侧栏组件（真实新闻：BBC中文网官方 RSS，经 rss2json 转为 JSON）====================
+// 说明：这两个 RSS 地址是 BBC 中文网官方长期维护的公开订阅源（非第三方转发），
+// rss2json.com 是一个成熟的免费 RSS→JSON 转换服务（每天 10000 次免费额度），
+// 用来解决浏览器端无法跨域直接解析 XML RSS 的问题。相比之前的个人 demo 接口，
+// 这两点保证了新闻是真实、可追溯来源的。
+const RSS_FEEDS: { url: string; source: string }[] = [
+  { url: 'https://feeds.bbci.co.uk/zhongwen/simp/rss.xml', source: 'BBC中文网' },
+  { url: 'http://www.bbc.co.uk/zhongwen/simp/business/index.xml', source: 'BBC中文网·财经' },
+];
+
+function extractImageFromHtml(html: string | undefined): string | null {
+  if (!html) return null;
+  const match = html.match(/<img[^>]+src="([^">]+)"/i);
+  return match ? match[1] : null;
+}
+
 const RightSidebar = memo(() => {
   // ---------- 新闻相关 ----------
   const [newsList, setNewsList] = useState<NewsItem[]>([]);
@@ -420,44 +436,66 @@ const RightSidebar = memo(() => {
   const [usingFallback, setUsingFallback] = useState(false);
   const [newsError, setNewsError] = useState(false);
 
-  // 获取真实新闻。接口不稳定（第三方免费接口，无 SLA 保证），
-  // 因此加了超时保护、失败时优先用上次成功的缓存兜底，
-  // 只有连缓存都没有时才展示写死的静态兜底列表。
+  // 获取真实新闻：并行请求多个官方 RSS 源，合并、去重、按发布时间排序。
+  // 单个源超时/失败不影响其他源；全部失败时优先用上次成功的缓存，
+  // 只有连缓存都没有才展示写死的静态兜底列表。
   const fetchRealNews = async () => {
     setLoadingNews(true);
     setNewsError(false);
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), NEWS_FETCH_TIMEOUT);
+    const fetchOneFeed = async (feed: { url: string; source: string }) => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), NEWS_FETCH_TIMEOUT);
+      try {
+        const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feed.url)}&count=10`;
+        const res = await fetch(apiUrl, { signal: controller.signal });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (data.status !== 'ok' || !Array.isArray(data.items)) throw new Error('数据格式异常');
+
+        return data.items.map((item: any) => ({
+          title: item.title as string,
+          source: { name: feed.source },
+          url: item.link as string,
+          urlToImage: (item.thumbnail || extractImageFromHtml(item.description)) || null,
+          _pubDate: item.pubDate ? new Date(item.pubDate).getTime() : 0,
+        }));
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    };
 
     try {
-      const url = 'https://benzhi.online/api/news?page=1&limit=15';
-      const res = await fetch(url, { signal: controller.signal });
+      const results = await Promise.allSettled(RSS_FEEDS.map(fetchOneFeed));
 
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const merged = results
+        .filter((r): r is PromiseFulfilledResult<any[]> => r.status === 'fulfilled')
+        .flatMap((r) => r.value);
 
-      const data = await res.json();
+      if (merged.length === 0) throw new Error('所有新闻源均不可用');
 
-      if (data.code === 200 && Array.isArray(data.data) && data.data.length > 0) {
-        const articles: NewsItem[] = data.data.map((item: any) => ({
-          title: item.title,
-          source: { name: item.source || '资讯' },
-          url: item.url || '#',
-          urlToImage: item.image || null,
-        }));
-        setNewsList(articles);
-        setUsingFallback(false);
-        // 成功获取时写入缓存，供接口下次不可用时使用
-        try {
-          sessionStorage.setItem(
-            NEWS_CACHE_KEY,
-            JSON.stringify({ articles, timestamp: Date.now() })
-          );
-        } catch {
-          // 缓存写入失败不影响主流程（比如隐私模式下 sessionStorage 受限）
-        }
-      } else {
-        throw new Error('数据格式异常');
+      // 按发布时间倒序，去重（同标题只保留一条），取前 15 条
+      const seen = new Set<string>();
+      const articles: NewsItem[] = merged
+        .sort((a, b) => b._pubDate - a._pubDate)
+        .filter((item) => {
+          if (seen.has(item.title)) return false;
+          seen.add(item.title);
+          return true;
+        })
+        .slice(0, 15)
+        .map(({ _pubDate, ...rest }) => rest);
+
+      setNewsList(articles);
+      setUsingFallback(false);
+      // 成功获取时写入缓存，供接口下次不可用时使用
+      try {
+        sessionStorage.setItem(
+          NEWS_CACHE_KEY,
+          JSON.stringify({ articles, timestamp: Date.now() })
+        );
+      } catch {
+        // 缓存写入失败不影响主流程（比如隐私模式下 sessionStorage 受限）
       }
     } catch (err) {
       console.warn('新闻接口请求失败，尝试使用缓存或备用数据', err);
@@ -481,7 +519,6 @@ const RightSidebar = memo(() => {
       setNewsList([...FALLBACK_NEWS].sort(() => Math.random() - 0.5));
       setUsingFallback(true);
     } finally {
-      clearTimeout(timeoutId);
       setLoadingNews(false);
     }
   };
@@ -1273,13 +1310,21 @@ export default function Home() {
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto p-4 pb-24 md:pb-4">
-        {/* 顶部：日期天气 */}
+      <div className="max-w-7xl mx-auto p-4 pb-24 md:pb-4 journal-ruled-bg">
+        {/* 顶部：日期天气 + 连续打卡天数 */}
         <div className="mb-6">
-          <div className="bg-white rounded-3xl shadow-soft p-5">
+          <div className="journal-card p-5">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
               <DateTime />
-              <Weather />
+              <div className="flex items-center gap-4">
+                {moodStreak > 0 && (
+                  <div className="flex items-center gap-2">
+                    <span className="journal-stamp w-11 h-11 journal-hand text-lg">{moodStreak}</span>
+                    <span className="text-xs text-stone-500 leading-tight">连续<br/>记录天数</span>
+                  </div>
+                )}
+                <Weather />
+              </div>
             </div>
           </div>
         </div>
@@ -1294,14 +1339,14 @@ export default function Home() {
                 <Sparkles className="w-4 h-4 text-terracotta-500" />
                 <span className="text-xs font-medium text-terracotta-600">每日格言</span>
               </div>
-              <p className="text-stone-700 text-sm leading-relaxed italic">"{dailyQuote.text}"</p>
+              <p className="text-stone-700 text-base leading-relaxed italic journal-hand">"{dailyQuote.text}"</p>
               <p className="text-stone-400 text-xs mt-2 text-right">—— {dailyQuote.author}</p>
             </div>
 
             {/* 心情记录卡片 */}
             <div className="bg-white rounded-3xl shadow-soft p-5">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-stone-900">今日心情</h3>
+                <h3 className="font-semibold text-stone-900 journal-title">今日心情</h3>
                 {moodTrend && (
                   <div className="flex items-center gap-1 text-xs text-stone-500">
                     <TrendingUp className="w-3 h-3" />
@@ -1309,6 +1354,29 @@ export default function Home() {
                   </div>
                 )}
               </div>
+
+              {moodChartData.length >= 2 && (
+                <div className="h-14 mb-4 -mx-1">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={moodChartData} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
+                      <YAxis domain={[1, 5]} hide />
+                      <Tooltip
+                        formatter={(value: number) => [value, '心情指数']}
+                        labelFormatter={(label) => label}
+                        contentStyle={{ fontSize: 12, borderRadius: 8, borderColor: '#EAC0C0' }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="score"
+                        stroke="#B23A48"
+                        strokeWidth={2}
+                        dot={{ r: 2.5, fill: '#B23A48' }}
+                        activeDot={{ r: 4 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
               
               {todayMood ? (
                 <div className={`p-4 rounded-2xl ${MOOD_CONFIG[todayMood.mood_type].bg} border ${MOOD_CONFIG[todayMood.mood_type].border}`}>
@@ -1399,7 +1467,7 @@ export default function Home() {
 
             {/* 统计仪表板 */}
             <div className="bg-white rounded-3xl shadow-soft p-5">
-              <h3 className="font-semibold text-stone-900 mb-4">我的数据</h3>
+              <h3 className="font-semibold text-stone-900 mb-4 journal-title">我的数据</h3>
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-gradient-to-br from-terracotta-50 to-terracotta-100/50 rounded-2xl p-3 text-center">
                   <BarChart3 className="w-5 h-5 text-terracotta-500 mx-auto mb-1" />
