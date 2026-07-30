@@ -413,11 +413,12 @@ const PostImageGallery = ({
   );
 };
 
-// ==================== 右侧栏组件（真实新闻：BBC中文网官方 RSS，经 rss2json 转为 JSON）====================
-// 说明：这两个 RSS 地址是 BBC 中文网官方长期维护的公开订阅源（非第三方转发），
-// rss2json.com 是一个成熟的免费 RSS→JSON 转换服务（每天 10000 次免费额度），
-// 用来解决浏览器端无法跨域直接解析 XML RSS 的问题。相比之前的个人 demo 接口，
-// 这两点保证了新闻是真实、可追溯来源的。
+// ==================== 右侧栏组件（真实新闻：BBC中文网官方 RSS）====================
+// 说明：这两个 RSS 地址是 BBC 中文网官方长期维护的公开订阅源（非第三方转发）。
+// 每个源走两条独立链路，任一条失败自动切到另一条，大幅降低"全部失效"的概率：
+//   链路 A：rss2json.com（若配置了 VITE_NEWS_API_KEY 就带上，避免命中全网共享的匿名限流）
+//   链路 B：allorigins.win 通用 CORS 代理直接拉取原始 XML，浏览器本地用 DOMParser 解析
+//         （不依赖 rss2json 这一个服务，即使它整体挂了也有备份）
 const RSS_FEEDS: { url: string; source: string }[] = [
   { url: 'https://feeds.bbci.co.uk/zhongwen/simp/rss.xml', source: 'BBC中文网' },
   { url: 'http://www.bbc.co.uk/zhongwen/simp/business/index.xml', source: 'BBC中文网·财经' },
@@ -429,6 +430,55 @@ function extractImageFromHtml(html: string | undefined): string | null {
   return match ? match[1] : null;
 }
 
+type RawNewsItem = NewsItem & { _pubDate: number };
+
+async function fetchViaRss2Json(feed: { url: string; source: string }, signal: AbortSignal): Promise<RawNewsItem[]> {
+  const apiKey = import.meta.env.VITE_NEWS_API_KEY;
+  const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feed.url)}&count=10${apiKey ? `&api_key=${apiKey}` : ''}`;
+  const res = await fetch(apiUrl, { signal });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  if (data.status !== 'ok' || !Array.isArray(data.items)) throw new Error(data.message || '数据格式异常');
+
+  return data.items.map((item: any) => ({
+    title: item.title as string,
+    source: { name: feed.source },
+    url: item.link as string,
+    urlToImage: (item.thumbnail || extractImageFromHtml(item.description)) || null,
+    _pubDate: item.pubDate ? new Date(item.pubDate).getTime() : 0,
+  }));
+}
+
+async function fetchViaCorsProxyXml(feed: { url: string; source: string }, signal: AbortSignal): Promise<RawNewsItem[]> {
+  const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(feed.url)}`;
+  const res = await fetch(proxyUrl, { signal });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const xmlText = await res.text();
+  const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
+
+  if (doc.querySelector('parsererror')) throw new Error('XML 解析失败');
+
+  const items = Array.from(doc.querySelectorAll('item')).slice(0, 10);
+  if (items.length === 0) throw new Error('未解析到任何条目');
+
+  return items.map((item) => {
+    const title = item.querySelector('title')?.textContent?.trim() || '';
+    const link = item.querySelector('link')?.textContent?.trim() || '#';
+    const pubDate = item.querySelector('pubDate')?.textContent;
+    const enclosure = item.querySelector('enclosure');
+    const mediaThumbnail = item.getElementsByTagName('media:thumbnail')[0];
+    const thumbnail = enclosure?.getAttribute('url') || mediaThumbnail?.getAttribute('url') || null;
+
+    return {
+      title,
+      source: { name: feed.source },
+      url: link,
+      urlToImage: thumbnail,
+      _pubDate: pubDate ? new Date(pubDate).getTime() : 0,
+    };
+  });
+}
+
 const RightSidebar = memo(() => {
   // ---------- 新闻相关 ----------
   const [newsList, setNewsList] = useState<NewsItem[]>([]);
@@ -436,30 +486,22 @@ const RightSidebar = memo(() => {
   const [usingFallback, setUsingFallback] = useState(false);
   const [newsError, setNewsError] = useState(false);
 
-  // 获取真实新闻：并行请求多个官方 RSS 源，合并、去重、按发布时间排序。
-  // 单个源超时/失败不影响其他源；全部失败时优先用上次成功的缓存，
-  // 只有连缓存都没有才展示写死的静态兜底列表。
+  // 获取真实新闻：每个源先试 rss2json，失败（含限流）自动切到 CORS 代理 + 本地 XML 解析；
+  // 全部源都失败时，优先用上次成功的缓存，缓存也没有才展示写死的静态兜底列表。
   const fetchRealNews = async () => {
     setLoadingNews(true);
     setNewsError(false);
 
-    const fetchOneFeed = async (feed: { url: string; source: string }) => {
+    const fetchOneFeed = async (feed: { url: string; source: string }): Promise<RawNewsItem[]> => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), NEWS_FETCH_TIMEOUT);
       try {
-        const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feed.url)}&count=10`;
-        const res = await fetch(apiUrl, { signal: controller.signal });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        if (data.status !== 'ok' || !Array.isArray(data.items)) throw new Error('数据格式异常');
-
-        return data.items.map((item: any) => ({
-          title: item.title as string,
-          source: { name: feed.source },
-          url: item.link as string,
-          urlToImage: (item.thumbnail || extractImageFromHtml(item.description)) || null,
-          _pubDate: item.pubDate ? new Date(item.pubDate).getTime() : 0,
-        }));
+        try {
+          return await fetchViaRss2Json(feed, controller.signal);
+        } catch (err) {
+          console.warn(`${feed.source} 走 rss2json 失败，切换到备用代理`, err);
+          return await fetchViaCorsProxyXml(feed, controller.signal);
+        }
       } finally {
         clearTimeout(timeoutId);
       }
@@ -469,7 +511,7 @@ const RightSidebar = memo(() => {
       const results = await Promise.allSettled(RSS_FEEDS.map(fetchOneFeed));
 
       const merged = results
-        .filter((r): r is PromiseFulfilledResult<any[]> => r.status === 'fulfilled')
+        .filter((r): r is PromiseFulfilledResult<RawNewsItem[]> => r.status === 'fulfilled')
         .flatMap((r) => r.value);
 
       if (merged.length === 0) throw new Error('所有新闻源均不可用');
