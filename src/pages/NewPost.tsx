@@ -7,7 +7,6 @@ import {
   ArrowLeft, X, Send, Loader2, MapPin, 
   Camera, Users, Lock, Globe, Clock, RefreshCw
 } from 'lucide-react'
-import { compressImages } from '../utils/imageCompression'
 
 // ==================== 定位函数（包含中文地名请求与本地时间获取）====================
 // 使用 OpenStreetMap Nominatim API 进行反向地理编码（全球覆盖，请求中文）
@@ -206,15 +205,13 @@ export default function NewPost() {
     setPreviews(newPreviews)
   }
 
-  // 上传图片（上传前先压缩，减少体积、加快上传和后续加载速度）
+  // 上传图片
   const uploadImages = async (): Promise<string[]> => {
     if (images.length === 0) return []
-
-    const compressed = await compressImages(images, { maxDimension: 1600, quality: 0.82 })
-
+    
     const urls: string[] = []
-
-    for (const file of compressed) {
+    
+    for (const file of images) {
       try {
         const fileName = `${user?.id}/${Date.now()}-${Math.random().toString(36).slice(2, 9)}.${file.name.split('.').pop()}`
         const { data, error } = await supabase.storage.from('posts').upload(fileName, file)
