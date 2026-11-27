@@ -5,16 +5,16 @@ import Weather from '../components/Weather'
 
 export default function Landing() {
   return (
-    <div className="min-h-screen bg-stone-50">
+    <div className="min-h-screen bg-cream">
       {/* Floating Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 px-4 py-4">
         <div className="max-w-5xl mx-auto">
-          <div className="bg-white/80 backdrop-blur-md rounded-3xl shadow-soft px-6 py-3 flex items-center justify-between">
+          <div className="bg-card/85 backdrop-blur-md rounded-3xl shadow-soft px-6 py-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-9 h-9 bg-gradient-to-br from-terracotta-400 to-terracotta-600 rounded-xl flex items-center justify-center">
                 <BookOpen className="w-5 h-5 text-white" />
               </div>
-              <span className="font-semibold text-stone-800 text-lg">拾忆人生</span>
+              <span className="font-semibold text-stone-800 text-lg journal-title">拾忆人生</span>
             </div>
             <div className="flex items-center gap-3">
               {/* 锚点导航：指向首页对应板块；小屏隐藏，避免挤占登录/注册按钮 */}
@@ -55,13 +55,15 @@ export default function Landing() {
           {/* Decorative Elements */}
           <div className="relative mb-8">
             <div className="absolute -top-8 left-1/2 -translate-x-1/2 w-24 h-24 bg-terracotta-200/40 rounded-full blur-3xl animate-float" />
+            <div className="absolute top-2 left-[calc(50%-11rem)] w-16 h-16 bg-amber-300/30 rounded-full blur-2xl animate-float" />
+            <div className="absolute -top-2 left-[calc(50%+8rem)] w-14 h-14 bg-amber-200/40 rounded-full blur-2xl animate-float" />
             <span className="inline-flex items-center gap-2 px-4 py-2 bg-terracotta-100/60 text-terracotta-700 rounded-full text-sm font-medium">
               <Sparkles className="w-4 h-4" />
               温暖记录每一天
             </span>
           </div>
           
-          <h1 className="text-4xl md:text-6xl font-bold text-stone-900 mb-6 leading-tight">
+          <h1 className="journal-title text-4xl md:text-6xl font-bold text-stone-900 mb-6 leading-tight">
             用心记录生活
             <br />
             <span className="text-terracotta-500">与挚友分享美好</span>
@@ -94,7 +96,7 @@ export default function Landing() {
       <section id="features" className="py-20 px-4 scroll-mt-24">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-stone-900 mb-4">
+            <h2 className="journal-title text-3xl md:text-4xl font-bold text-stone-900 mb-4">
               简单而温暖的功能
             </h2>
             <p className="text-stone-500 text-lg">
@@ -104,33 +106,33 @@ export default function Landing() {
           
           <div className="grid md:grid-cols-3 gap-6">
             {/* Feature 1 */}
-            <div className="group bg-white rounded-3xl p-8 shadow-soft hover:shadow-soft-lg transition-all duration-400 hover:-translate-y-1">
+            <div className="group bg-card rounded-3xl p-8 shadow-soft ring-1 ring-stone-100 hover:shadow-soft-lg transition-all duration-400 hover:-translate-y-1">
               <div className="w-14 h-14 bg-terracotta-100 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-terracotta-200 transition-colors duration-300">
                 <BookOpen className="w-7 h-7 text-terracotta-600" />
               </div>
-              <h3 className="text-xl font-semibold text-stone-900 mb-3">生活记录</h3>
+              <h3 className="journal-title text-xl font-semibold text-stone-900 mb-3">生活记录</h3>
               <p className="text-stone-500 leading-relaxed">
                 用文字和图片记录每一个值得铭记的瞬间，让美好的回忆永不褪色。
               </p>
             </div>
             
             {/* Feature 2 */}
-            <div className="group bg-white rounded-3xl p-8 shadow-soft hover:shadow-soft-lg transition-all duration-400 hover:-translate-y-1">
+            <div className="group bg-card rounded-3xl p-8 shadow-soft ring-1 ring-stone-100 hover:shadow-soft-lg transition-all duration-400 hover:-translate-y-1">
               <div className="w-14 h-14 bg-terracotta-100 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-terracotta-200 transition-colors duration-300">
                 <Users className="w-7 h-7 text-terracotta-600" />
               </div>
-              <h3 className="text-xl font-semibold text-stone-900 mb-3">好友圈子</h3>
+              <h3 className="journal-title text-xl font-semibold text-stone-900 mb-3">好友圈子</h3>
               <p className="text-stone-500 leading-relaxed">
                 邀请亲密好友加入你的圈子，一起分享生活，互相陪伴成长。
               </p>
             </div>
             
             {/* Feature 3 */}
-            <div className="group bg-white rounded-3xl p-8 shadow-soft hover:shadow-soft-lg transition-all duration-400 hover:-translate-y-1">
+            <div className="group bg-card rounded-3xl p-8 shadow-soft ring-1 ring-stone-100 hover:shadow-soft-lg transition-all duration-400 hover:-translate-y-1">
               <div className="w-14 h-14 bg-terracotta-100 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-terracotta-200 transition-colors duration-300">
                 <MessageCircle className="w-7 h-7 text-terracotta-600" />
               </div>
-              <h3 className="text-xl font-semibold text-stone-900 mb-3">温暖交流</h3>
+              <h3 className="journal-title text-xl font-semibold text-stone-900 mb-3">温暖交流</h3>
               <p className="text-stone-500 leading-relaxed">
                 与好友进行私密对话，分享心事，在这里找到温暖的倾听者。
               </p>
@@ -149,7 +151,7 @@ export default function Landing() {
             
             <div className="relative">
               <Heart className="w-12 h-12 text-white/80 mx-auto mb-6" />
-              <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">
+              <h2 className="journal-title text-2xl md:text-3xl font-bold text-white mb-4">
                 开始你的温暖旅程
               </h2>
               <p className="text-white/80 mb-8 text-lg">
@@ -174,7 +176,7 @@ export default function Landing() {
             <div className="w-8 h-8 bg-gradient-to-br from-terracotta-400 to-terracotta-600 rounded-lg flex items-center justify-center">
               <BookOpen className="w-4 h-4 text-white" />
             </div>
-            <span className="font-medium text-stone-700">拾忆人生</span>
+            <span className="font-medium text-stone-700 journal-title">拾忆人生</span>
           </div>
           <nav className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm">
             <a href="#features" className="text-stone-500 hover:text-terracotta-600 transition-colors">功能</a>

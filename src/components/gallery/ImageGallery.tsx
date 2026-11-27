@@ -310,7 +310,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
   // 如果没有图片
   if (!images || images.length === 0) {
     return (
-      <div className="flex items-center justify-center p-8 text-gray-500">
+      <div className="flex items-center justify-center p-8 text-stone-500">
         <AlertCircle className="w-6 h-6 mr-2" />
         暂无图片可展示
       </div>
@@ -330,7 +330,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
             {currentIndex + 1} / {images.length}
           </span>
           {currentImage.caption && (
-            <span className="text-gray-300 truncate max-w-md">
+            <span className="text-stone-300 truncate max-w-md">
               {currentImage.caption}
             </span>
           )}
@@ -394,19 +394,19 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
       {/* 主图片展示区 - 绝对固定尺寸 */}
       <div className="relative" style={{ width: `${DISPLAY_WIDTH}px`, height: `${DISPLAY_HEIGHT}px` }}>
         {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-900 rounded-lg">
+          <div className="absolute inset-0 flex items-center justify-center bg-stone-900 rounded-lg">
             <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
           </div>
         )}
         
         {error ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 rounded-lg p-4">
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-stone-900 rounded-lg p-4">
             <AlertCircle className="w-8 h-8 mb-2 text-red-400" />
             <p className="text-sm mb-1 text-white">图片加载失败</p>
-            <p className="text-gray-400 text-xs text-center">{error}</p>
+            <p className="text-stone-400 text-xs text-center">{error}</p>
           </div>
         ) : (
-          <div className="w-full h-full bg-gray-900 rounded-lg overflow-hidden border border-gray-700">
+          <div className="w-full h-full bg-stone-900 rounded-lg overflow-hidden border border-stone-700">
             <img
               ref={imageRef}
               src={currentImage.url}
@@ -468,7 +468,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({
                     {currentImage.uploader?.name || '未知用户'}
                   </p>
                   {currentImage.createdAt && (
-                    <p className="text-gray-400 text-sm">
+                    <p className="text-stone-400 text-sm">
                       {new Date(currentImage.createdAt).toLocaleDateString()}
                     </p>
                   )}

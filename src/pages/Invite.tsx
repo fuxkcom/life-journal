@@ -52,18 +52,18 @@ export default function Invite() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+      <div className="min-h-screen bg-stone-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-terracotta-600 animate-spin" />
       </div>
     )
   }
 
   if (!inviter) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-stone-50 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-500 mb-4">邀请链接无效</p>
-          <button onClick={() => navigate('/')} className="text-indigo-600 hover:underline">
+          <p className="text-stone-500 mb-4">邀请链接无效</p>
+          <button onClick={() => navigate('/')} className="text-terracotta-600 hover:underline">
             返回首页
           </button>
         </div>
@@ -72,32 +72,32 @@ export default function Invite() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-terracotta-50 via-[#FFFDF6] to-terracotta-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-        <div className="w-20 h-20 rounded-full bg-indigo-100 flex items-center justify-center mx-auto mb-6">
+        <div className="w-20 h-20 rounded-full bg-terracotta-100 flex items-center justify-center mx-auto mb-6">
           {inviter.avatar_url ? (
             <img src={inviter.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
           ) : (
-            <span className="text-2xl text-indigo-600 font-medium">
+            <span className="text-2xl text-terracotta-600 font-medium">
               {inviter.display_name?.[0] || inviter.username[0]}
             </span>
           )}
         </div>
 
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">
+        <h1 className="text-2xl font-bold text-stone-900 mb-2">
           {inviter.display_name || inviter.username}
         </h1>
-        <p className="text-gray-500 mb-6">@{inviter.username}</p>
-        <p className="text-gray-600 mb-8">邀请你成为好友</p>
+        <p className="text-stone-500 mb-6">@{inviter.username}</p>
+        <p className="text-stone-600 mb-8">邀请你成为好友</p>
 
         {user ? (
           user.id === userId ? (
-            <p className="text-gray-500">这是你自己的邀请链接</p>
+            <p className="text-stone-500">这是你自己的邀请链接</p>
           ) : (
             <button
               onClick={acceptInvite}
               disabled={sending}
-              className="w-full bg-indigo-600 text-white py-3 rounded-xl font-medium hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full bg-terracotta-600 text-white py-3 rounded-xl font-medium hover:bg-terracotta-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : <UserPlus className="w-5 h-5" />}
               添加好友
@@ -107,13 +107,13 @@ export default function Invite() {
           <div className="space-y-3">
             <button
               onClick={() => navigate('/register')}
-              className="w-full bg-indigo-600 text-white py-3 rounded-xl font-medium hover:bg-indigo-700 transition-colors"
+              className="w-full bg-terracotta-600 text-white py-3 rounded-xl font-medium hover:bg-terracotta-700 transition-colors"
             >
               注册账户
             </button>
             <button
               onClick={() => navigate('/login')}
-              className="w-full bg-gray-100 text-gray-700 py-3 rounded-xl font-medium hover:bg-gray-200 transition-colors"
+              className="w-full bg-stone-100 text-stone-700 py-3 rounded-xl font-medium hover:bg-stone-200 transition-colors"
             >
               已有账户？登录
             </button>

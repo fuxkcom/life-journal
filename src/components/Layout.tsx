@@ -25,15 +25,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   ]
 
   return (
-    <div className="min-h-screen bg-stone-50">
+    <div className="min-h-screen bg-cream">
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex flex-col fixed left-0 top-0 h-full w-64 bg-white border-r border-stone-200 z-50">
+      <aside className="hidden md:flex flex-col fixed left-0 top-0 h-full w-64 bg-card border-r border-stone-200 z-50">
         <div className="p-6 border-b border-stone-100">
           <div className="flex items-center gap-2">
             <div className="w-9 h-9 bg-gradient-to-br from-terracotta-400 to-terracotta-600 rounded-xl flex items-center justify-center">
               <BookOpen className="w-5 h-5 text-white" />
             </div>
-            <h1 className="text-xl font-bold text-stone-800">拾忆人生</h1>
+            <h1 className="text-xl font-bold text-stone-800 journal-title">拾忆人生</h1>
           </div>
         </div>
 
@@ -103,13 +103,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Mobile Header */}
-      <header className="md:hidden fixed top-0 left-0 right-0 bg-white/80 backdrop-blur-md border-b border-stone-200 z-50">
+      <header className="md:hidden fixed top-0 left-0 right-0 bg-card/85 backdrop-blur-md border-b border-stone-200 z-50">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-gradient-to-br from-terracotta-400 to-terracotta-600 rounded-lg flex items-center justify-center">
               <BookOpen className="w-4 h-4 text-white" />
             </div>
-            <h1 className="text-lg font-bold text-stone-800">拾忆人生</h1>
+            <h1 className="text-lg font-bold text-stone-800 journal-title">拾忆人生</h1>
           </div>
           <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-2 hover:bg-stone-100 rounded-xl transition-colors">
             {mobileMenuOpen ? <X className="w-6 h-6 text-stone-700" /> : <Menu className="w-6 h-6 text-stone-700" />}
@@ -117,7 +117,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
 
         {mobileMenuOpen && (
-          <nav className="absolute top-full left-0 right-0 bg-white border-b border-stone-200 p-4 space-y-2 shadow-soft">
+          <nav className="absolute top-full left-0 right-0 bg-card border-b border-stone-200 p-4 space-y-2 shadow-soft">
             {navItems.map((item) => (
               <Link
                 key={item.path}
@@ -162,7 +162,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* Mobile Bottom Nav */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-stone-200 z-50">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-card/90 backdrop-blur-md border-t border-stone-200 z-50">
         <div className="flex items-center justify-around py-2">
           {navItems.map((item) => (
             <Link

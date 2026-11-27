@@ -35,7 +35,7 @@ const ThumbnailImage: React.FC<ThumbnailImageProps> = ({
     <div 
       className={`
         relative overflow-hidden rounded-lg 
-        bg-gray-100 dark:bg-gray-800 
+        bg-stone-100 dark:bg-stone-800 
         transition-all duration-300 
         hover:shadow-lg hover:z-10
         ${containerClasses[size]}
@@ -45,7 +45,7 @@ const ThumbnailImage: React.FC<ThumbnailImageProps> = ({
     >
       {/* 加载占位 */}
       {!loaded && (
-        <div className="absolute inset-0 animate-pulse bg-gray-200 dark:bg-gray-700" />
+        <div className="absolute inset-0 animate-pulse bg-stone-200 dark:bg-stone-700" />
       )}
       
       {/* 缩略图 */}

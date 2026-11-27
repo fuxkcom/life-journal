@@ -37,15 +37,54 @@ img {
   position: fixed;
 }
 
-/* ==================== 日记本视觉主题 ==================== */
+/* ==================== 拾忆人生 · 暖阳主题 ====================
+   底色暖奶油、强调陶土橘、点缀暖金；文字用暖棕灰，不用纯黑和冷蓝灰。
+   Google Fonts 加载失败时，系统字体回退（苹方/微软雅黑/宋体）依然是
+   圆润黑体 + 衬线标题，不会变丑。 */
 
 body {
-  font-family: 'Noto Sans SC', Inter, system-ui, -apple-system, sans-serif;
+  font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', Inter, system-ui, -apple-system, sans-serif;
+  background-color: #FAF4E6;
+  color: #2C2722;
+}
+
+/* 暖色选中态：选中文字呈浅陶土底 + 深棕字 */
+::selection {
+  background: #F5DCC8;
+  color: #3F1D11;
+}
+
+/* 暖色滚动条（桌面端）：浅米轨道 + 陶土色滑块 */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #F5EDD8;
+}
+::-webkit-scrollbar-thumb {
+  background: #DFC39E;
+  border-radius: 8px;
+  border: 2px solid #F5EDD8;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #C96A42;
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #DFC39E #F5EDD8;
+}
+
+/* 键盘焦点可见态：暖陶土描边，替代浏览器默认的冷蓝色 */
+:focus-visible {
+  outline: 2px solid rgba(180, 80, 47, 0.55);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 /* 标题统一使用中文衬线字体 */
 .journal-title {
-  font-family: 'Noto Serif SC', Georgia, serif;
+  font-family: 'Noto Serif SC', 'Songti SC', 'STSong', Georgia, serif;
 }
 
 /* 手写体点缀：日期戳、心情标签、每日一句等 */
@@ -53,13 +92,13 @@ body {
   font-family: 'Zhi Mang Xing', 'Noto Sans SC', cursive;
 }
 
-/* 笔记本页边线：卡片左侧一道砖红色竖线，呼应横线笔记本的装订边，
+/* 笔记本页边线：卡片左侧一道陶土橘竖线，呼应横线笔记本的装订边，
    是整站唯一重复使用的视觉签名元素，仅用于最核心的卡片（首页顶部、动态卡片）。 */
 .journal-card {
   position: relative;
-  background: #FFFDF7;
-  border-radius: 20px;
-  box-shadow: 0 4px 20px rgba(178, 58, 72, 0.08);
+  background: #FFFDF6;
+  border-radius: 24px;
+  box-shadow: 0 4px 20px rgba(180, 80, 47, 0.08);
   padding-left: 1.75rem;
 }
 
@@ -70,7 +109,7 @@ body {
   top: 14px;
   bottom: 14px;
   width: 2px;
-  background: rgba(178, 58, 72, 0.35);
+  background: rgba(180, 80, 47, 0.35);
   border-radius: 1px;
 }
 
@@ -80,8 +119,8 @@ body {
     to bottom,
     transparent,
     transparent 35px,
-    rgba(178, 58, 72, 0.05) 35px,
-    rgba(178, 58, 72, 0.05) 36px
+    rgba(180, 80, 47, 0.05) 35px,
+    rgba(180, 80, 47, 0.05) 36px
   );
 }
 
@@ -91,8 +130,8 @@ body {
   align-items: center;
   justify-content: center;
   border-radius: 9999px;
-  border: 1.5px solid rgba(178, 58, 72, 0.4);
-  color: #B23A48;
+  border: 1.5px solid rgba(180, 80, 47, 0.45);
+  color: #B4502F;
 }
 
 

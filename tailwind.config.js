@@ -20,24 +20,26 @@ module.exports = {
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
 				ring: 'hsl(var(--ring))',
-				// 纸张背景：暖亚麻纸色，比标准米色更沉一点，呼应"笔记本纸张"的主题
-				background: '#F3EEE1',
-				foreground: '#241F1C',
+				// 纸张背景：暖奶油色，比原来的亚麻纸更亮更柔，像刚晒过的棉布，
+				// 全站底色统一用它，告别冷灰白。
+				background: '#FAF4E6',
+				foreground: '#2C2722',
 				// terracotta 这个 token 名称在全站几十处地方复用（按钮/高亮/边框/焦点环等），
-				// 把它整体换成"笔记本装订线"般的砖红色，即可让全站统一换上新配色，
-				// 不需要逐个组件替换 class 名。
+				// 把它整体换成暖陶土橘（偏橘的陶土色，比原来的砖红更暖更柔），
+				// 即可让全站统一换上新配色，不需要逐个组件替换 class 名。
+				// 500 号色与白字对比度约 5:1，按钮白字清晰可读。
 				terracotta: {
-					DEFAULT: '#B23A48',
-					50: '#FBF1F1',
-					100: '#F6E1E1',
-					200: '#EAC0C0',
-					300: '#DA9797',
-					400: '#C66868',
-					500: '#B23A48',
-					600: '#97303D',
-					700: '#782531',
-					800: '#591C24',
-					900: '#3B1218',
+					DEFAULT: '#B4502F',
+					50: '#FBF0E6',
+					100: '#F5DCC8',
+					200: '#EAB894',
+					300: '#DD9168',
+					400: '#C96A42',
+					500: '#B4502F',
+					600: '#9C4426',
+					700: '#7E371F',
+					800: '#5F2A18',
+					900: '#3F1D11',
 				},
 				stone: {
 					50: '#FAF8F4',
@@ -51,21 +53,22 @@ module.exports = {
 					800: '#2C2722',
 					900: '#1C1815',
 				},
-				cream: '#FAF6EA',
+				cream: '#FBF3DF',
 				primary: {
-					DEFAULT: '#B23A48',
+					DEFAULT: '#B4502F',
 					foreground: '#FFFFFF',
 				},
 				secondary: {
 					DEFAULT: '#F1ECE1',
 					foreground: '#443D33',
 				},
+				// 点缀：暖金/琥珀色，用于徽章、描边和次级强调
 				accent: {
-					DEFAULT: '#A9822F',
+					DEFAULT: '#B08A2E',
 					foreground: '#1C1815',
 				},
 				destructive: {
-					DEFAULT: '#DC2626',
+					DEFAULT: '#C0452F',
 					foreground: '#FFFFFF',
 				},
 				muted: {
@@ -73,8 +76,8 @@ module.exports = {
 					foreground: '#7D7361',
 				},
 				card: {
-					DEFAULT: '#FFFDF7',
-					foreground: '#241F1C',
+					DEFAULT: '#FFFDF6',
+					foreground: '#2C2722',
 				},
 			},
 			borderRadius: {
@@ -85,17 +88,20 @@ module.exports = {
 				sm: '6px',
 			},
 			fontFamily: {
-				// 正文：Noto Sans SC，中文渲染更规整，配合 Inter 作为数字/拉丁字符补充
-				sans: ['"Noto Sans SC"', 'Inter', 'system-ui', '-apple-system', 'sans-serif'],
-				// 标题：中文衬线字体，日记本封面/标题的质感
-				serif: ['"Noto Serif SC"', 'Georgia', 'serif'],
+				// 正文：Noto Sans SC，中文渲染更规整，配合 Inter 作为数字/拉丁字符补充；
+				// Google Fonts 加载失败时回退到苹方 / 微软雅黑，依然是圆润的中文黑体，不会变丑。
+				sans: ['"Noto Sans SC"', '"PingFang SC"', '"Microsoft YaHei"', 'Inter', 'system-ui', '-apple-system', 'sans-serif'],
+				// 标题：中文衬线字体，日记本封面/标题的质感；
+				// 加载失败时回退到宋体（宋體 / STSong），仍保留衬线文艺气。
+				serif: ['"Noto Serif SC"', '"Songti SC"', '"STSong"', 'Georgia', 'serif'],
 				// 手写体：日期戳、心情标签等点缀元素，呼应"手写日记"的主题
 				hand: ['"Zhi Mang Xing"', '"Noto Sans SC"', 'cursive'],
 			},
 			boxShadow: {
-				'soft': '0 4px 20px rgba(178, 58, 72, 0.08)',
-				'soft-lg': '0 8px 40px rgba(178, 58, 72, 0.12)',
-				'glow': '0 0 40px rgba(178, 58, 72, 0.15)',
+				// 暖色阴影：陶土橘的柔光，卡片浮在奶油底色上更温润
+				'soft': '0 4px 20px rgba(180, 80, 47, 0.08)',
+				'soft-lg': '0 10px 36px rgba(180, 80, 47, 0.14)',
+				'glow': '0 0 40px rgba(180, 80, 47, 0.16)',
 			},
 			keyframes: {
 				'fade-up': {

@@ -46,12 +46,12 @@ const ThumbnailImage: React.FC<{
 
   return (
     <div 
-      className="relative aspect-square overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800 transition-all duration-300 hover:shadow-xl hover:z-10 hover:-translate-y-1 cursor-pointer group"
+      className="relative aspect-square overflow-hidden rounded-lg bg-stone-100 dark:bg-stone-800 transition-all duration-300 hover:shadow-xl hover:z-10 hover:-translate-y-1 cursor-pointer group"
       onClick={() => onClick(image, index)}
     >
       {/* 加载占位 */}
       {!loaded && (
-        <div className="absolute inset-0 animate-pulse bg-gray-200 dark:bg-gray-700" />
+        <div className="absolute inset-0 animate-pulse bg-stone-200 dark:bg-stone-700" />
       )}
       
       {/* 缩略图 */}
@@ -245,8 +245,8 @@ const FriendPostsGallery: React.FC<FriendPostsGalleryProps> = ({
           onClick={() => setCurrentPage(page)}
           className={`min-w-[2.5rem] h-10 rounded-lg text-sm font-medium transition-colors ${
             currentPage === page
-              ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-md'
-              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+              ? 'bg-gradient-to-r from-terracotta-500 to-terracotta-600 text-white shadow-md'
+              : 'text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800'
           }`}
         >
           {page}
@@ -259,7 +259,7 @@ const FriendPostsGallery: React.FC<FriendPostsGalleryProps> = ({
         <button
           onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
           disabled={currentPage === 1}
-          className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+          className="px-4 py-2 text-sm font-medium text-stone-700 dark:text-stone-300 bg-stone-100 dark:bg-stone-800 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors"
         >
           上一页
         </button>
@@ -269,12 +269,12 @@ const FriendPostsGallery: React.FC<FriendPostsGalleryProps> = ({
         <button
           onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
           disabled={currentPage === totalPages}
-          className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+          className="px-4 py-2 text-sm font-medium text-stone-700 dark:text-stone-300 bg-stone-100 dark:bg-stone-800 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-stone-200 dark:hover:bg-stone-700 transition-colors"
         >
           下一页
         </button>
         
-        <div className="text-sm text-gray-500 dark:text-gray-400 ml-4">
+        <div className="text-sm text-stone-500 dark:text-stone-400 ml-4">
           第 {currentPage} / {totalPages} 页 · 共 {filteredImages.length} 张图片
         </div>
       </div>
@@ -282,14 +282,14 @@ const FriendPostsGallery: React.FC<FriendPostsGalleryProps> = ({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg p-4 md:p-6">
+    <div className="bg-white dark:bg-stone-900 rounded-xl shadow-lg p-4 md:p-6">
       {/* 控制栏 */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 space-y-4 sm:space-y-0">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center">
+          <h2 className="text-2xl font-bold text-stone-800 dark:text-white flex items-center">
             <Users className="w-6 h-6 mr-2" />
             好友动态图片
-            <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">
+            <span className="ml-2 text-sm font-normal text-stone-500 dark:text-stone-400">
               ({filteredImages.length}张图片)
             </span>
           </h2>
@@ -297,13 +297,13 @@ const FriendPostsGallery: React.FC<FriendPostsGalleryProps> = ({
         
         <div className="flex flex-wrap items-center gap-3">
           {/* 视图切换 */}
-          <div className="flex items-center space-x-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+          <div className="flex items-center space-x-1 bg-stone-100 dark:bg-stone-800 rounded-lg p-1">
             <button
               onClick={() => setViewMode('grid')}
               className={`p-2 rounded-md transition-colors ${
                 viewMode === 'grid' 
-                  ? 'bg-white dark:bg-gray-700 shadow-sm text-blue-600 dark:text-blue-400' 
-                  : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400'
+                  ? 'bg-white dark:bg-stone-700 shadow-sm text-terracotta-600 dark:text-terracotta-400' 
+                  : 'hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-400'
               }`}
               title="网格视图"
             >
@@ -314,14 +314,14 @@ const FriendPostsGallery: React.FC<FriendPostsGalleryProps> = ({
           {/* 筛选器 */}
           {enableFilter && (
             <div className="flex items-center space-x-2">
-              <Filter className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+              <Filter className="w-4 h-4 text-stone-500 dark:text-stone-400" />
               <select
                 value={filter}
                 onChange={(e) => {
                   setFilter(e.target.value as any);
                   setCurrentPage(1);
                 }}
-                className="px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-800 border-0 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-gray-700 dark:text-gray-300"
+                className="px-3 py-1.5 text-sm bg-stone-100 dark:bg-stone-800 border-0 rounded-lg focus:ring-2 focus:ring-terracotta-500 focus:outline-none text-stone-700 dark:text-stone-300"
               >
                 <option value="all">全部图片</option>
                 <option value="recent">最近发布</option>
@@ -335,11 +335,11 @@ const FriendPostsGallery: React.FC<FriendPostsGalleryProps> = ({
       {/* 图片展示区 */}
       {paginatedImages.length === 0 ? (
         <div className="text-center py-12">
-          <div className="w-24 h-24 mx-auto mb-4 text-gray-300 dark:text-gray-600">
+          <div className="w-24 h-24 mx-auto mb-4 text-stone-300 dark:text-stone-600">
             <Users className="w-full h-full opacity-50" />
           </div>
-          <p className="text-gray-500 dark:text-gray-400 text-lg mb-2">暂无好友动态图片</p>
-          <p className="text-gray-400 dark:text-gray-500 text-sm">
+          <p className="text-stone-500 dark:text-stone-400 text-lg mb-2">暂无好友动态图片</p>
+          <p className="text-stone-400 dark:text-stone-500 text-sm">
             去发布一些图片，或者等待好友分享他们的生活
           </p>
         </div>
@@ -368,7 +368,7 @@ const FriendPostsGallery: React.FC<FriendPostsGalleryProps> = ({
                   className="mb-3 md:mb-4 break-inside-avoid"
                   onClick={() => handleImageClick(image, index)}
                 >
-                  <div className="relative overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800">
+                  <div className="relative overflow-hidden rounded-lg bg-stone-100 dark:bg-stone-800">
                     <img
                       src={image.thumbnailUrl || image.url}
                       alt={image.alt || ''}
@@ -377,11 +377,11 @@ const FriendPostsGallery: React.FC<FriendPostsGalleryProps> = ({
                     />
                   </div>
                   <div className="mt-2 px-1">
-                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
+                    <p className="text-sm font-medium text-stone-700 dark:text-stone-300 truncate">
                       {image.uploader?.name}
                     </p>
                     {image.caption && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mt-1">
+                      <p className="text-xs text-stone-500 dark:text-stone-400 line-clamp-2 mt-1">
                         {image.caption}
                       </p>
                     )}
@@ -427,14 +427,14 @@ const FriendPostsGallery: React.FC<FriendPostsGalleryProps> = ({
       
       {/* 使用提示 */}
       {paginatedImages.length > 0 && (
-        <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-          <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+        <div className="mt-6 pt-6 border-t border-stone-200 dark:border-stone-700">
+          <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-stone-500 dark:text-stone-400">
             <span className="flex items-center gap-1">
-              <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+              <span className="w-2 h-2 bg-terracotta-500 rounded-full"></span>
               点击缩略图可放大浏览
             </span>
             <span className="flex items-center gap-1">
-              <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
+              <span className="w-2 h-2 bg-terracotta-500 rounded-full"></span>
               支持键盘导航（← → 键）
             </span>
             <span className="flex items-center gap-1">

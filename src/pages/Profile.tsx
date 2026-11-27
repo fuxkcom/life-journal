@@ -145,26 +145,26 @@ export default function Profile() {
   return (
     <Layout>
       <div className="max-w-2xl mx-auto p-4 pb-24 md:pb-4">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">个人资料</h2>
+        <h2 className="text-2xl font-bold text-stone-900 mb-6">个人资料</h2>
 
         <div className="bg-white rounded-2xl shadow-sm p-6">
           {/* Avatar */}
           <div className="flex justify-center mb-8">
             <div className="relative">
-              <div className="w-24 h-24 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden">
+              <div className="w-24 h-24 rounded-full bg-terracotta-100 flex items-center justify-center overflow-hidden">
                 {avatarUploading ? (
-                  <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+                  <Loader2 className="w-8 h-8 text-terracotta-600 animate-spin" />
                 ) : profile?.avatar_url ? (
                   <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-3xl text-indigo-600 font-medium">
+                  <span className="text-3xl text-terracotta-600 font-medium">
                     {profile?.display_name?.[0] || profile?.username?.[0]}
                   </span>
                 )}
               </div>
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="absolute bottom-0 right-0 w-8 h-8 bg-indigo-600 text-white rounded-full flex items-center justify-center hover:bg-indigo-700"
+                className="absolute bottom-0 right-0 w-8 h-8 bg-terracotta-600 text-white rounded-full flex items-center justify-center hover:bg-terracotta-700"
               >
                 <Camera className="w-4 h-4" />
               </button>
@@ -180,48 +180,48 @@ export default function Profile() {
 
           {/* Username */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">用户名</label>
+            <label className="block text-sm font-medium text-stone-700 mb-2">用户名</label>
             <input
               type="text"
               value={profile?.username || ''}
               disabled
-              className="w-full px-4 py-3 bg-gray-100 rounded-lg text-gray-500 cursor-not-allowed"
+              className="w-full px-4 py-3 bg-stone-100 rounded-lg text-stone-500 cursor-not-allowed"
             />
-            <p className="mt-1 text-sm text-gray-500">用户名不可修改</p>
+            <p className="mt-1 text-sm text-stone-500">用户名不可修改</p>
           </div>
 
           {/* Display Name */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">昵称</label>
+            <label className="block text-sm font-medium text-stone-700 mb-2">昵称</label>
             <input
               type="text"
               value={displayName}
               onChange={(e) => { setDisplayName(e.target.value); setNameEdited(true) }}
               placeholder="设置你的昵称"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="w-full px-4 py-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-terracotta-500 focus:border-transparent"
             />
           </div>
 
           {/* Bio */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">个人简介</label>
+            <label className="block text-sm font-medium text-stone-700 mb-2">个人简介</label>
             <textarea
               value={bio}
               onChange={(e) => { setBio(e.target.value); setBioEdited(true) }}
               placeholder="介绍一下自己..."
               rows={4}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+              className="w-full px-4 py-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-terracotta-500 focus:border-transparent resize-none"
             />
           </div>
 
           {/* Email */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">邮箱</label>
+            <label className="block text-sm font-medium text-stone-700 mb-2">邮箱</label>
             <input
               type="email"
               value={user?.email || ''}
               disabled
-              className="w-full px-4 py-3 bg-gray-100 rounded-lg text-gray-500 cursor-not-allowed"
+              className="w-full px-4 py-3 bg-stone-100 rounded-lg text-stone-500 cursor-not-allowed"
             />
           </div>
 
@@ -229,7 +229,7 @@ export default function Profile() {
           <button
             onClick={handleSave}
             disabled={loading}
-            className="w-full bg-indigo-600 text-white py-3 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+            className="w-full bg-terracotta-600 text-white py-3 rounded-lg font-medium hover:bg-terracotta-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
             保存更改
@@ -238,7 +238,7 @@ export default function Profile() {
 
         {/* Password Change Section */}
         <div className="bg-white rounded-2xl shadow-sm p-6 mt-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
+          <h3 className="text-lg font-semibold text-stone-900 mb-6 flex items-center gap-2">
             <Lock className="w-5 h-5" />
             修改密码
           </h3>
@@ -257,20 +257,20 @@ export default function Profile() {
           
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">当前密码</label>
+              <label className="block text-sm font-medium text-stone-700 mb-2">当前密码</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" />
                 <input
                   type={showPasswords ? 'text' : 'password'}
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
-                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full pl-10 pr-12 py-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-terracotta-500 focus:border-transparent"
                   placeholder="输入当前密码"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPasswords(!showPasswords)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
                 >
                   {showPasswords ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
@@ -278,29 +278,29 @@ export default function Profile() {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">新密码</label>
+              <label className="block text-sm font-medium text-stone-700 mb-2">新密码</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" />
                 <input
                   type={showPasswords ? 'text' : 'password'}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-terracotta-500 focus:border-transparent"
                   placeholder="输入新密码"
                 />
               </div>
               
               {newPassword && (
                 <div className="mt-3 space-y-2">
-                  <div className={`flex items-center gap-2 text-sm ${passwordValidation.minLength ? 'text-green-600' : 'text-gray-500'}`}>
+                  <div className={`flex items-center gap-2 text-sm ${passwordValidation.minLength ? 'text-green-600' : 'text-stone-500'}`}>
                     {passwordValidation.minLength ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
                     至少8个字符
                   </div>
-                  <div className={`flex items-center gap-2 text-sm ${passwordValidation.hasLetter ? 'text-green-600' : 'text-gray-500'}`}>
+                  <div className={`flex items-center gap-2 text-sm ${passwordValidation.hasLetter ? 'text-green-600' : 'text-stone-500'}`}>
                     {passwordValidation.hasLetter ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
                     包含字母
                   </div>
-                  <div className={`flex items-center gap-2 text-sm ${passwordValidation.hasNumber ? 'text-green-600' : 'text-gray-500'}`}>
+                  <div className={`flex items-center gap-2 text-sm ${passwordValidation.hasNumber ? 'text-green-600' : 'text-stone-500'}`}>
                     {passwordValidation.hasNumber ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
                     包含数字
                   </div>
@@ -309,14 +309,14 @@ export default function Profile() {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">确认新密码</label>
+              <label className="block text-sm font-medium text-stone-700 mb-2">确认新密码</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" />
                 <input
                   type={showPasswords ? 'text' : 'password'}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-3 border border-stone-300 rounded-lg focus:ring-2 focus:ring-terracotta-500 focus:border-transparent"
                   placeholder="再次输入新密码"
                 />
               </div>
@@ -328,7 +328,7 @@ export default function Profile() {
             <button
               onClick={handlePasswordChange}
               disabled={passwordLoading || !currentPassword || !newPassword || !confirmPassword}
-              className="w-full bg-indigo-600 text-white py-3 rounded-lg font-medium hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full bg-terracotta-600 text-white py-3 rounded-lg font-medium hover:bg-terracotta-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {passwordLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Lock className="w-5 h-5" />}
               修改密码

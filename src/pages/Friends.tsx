@@ -133,7 +133,7 @@ export default function Friends() {
   return (
     <Layout>
       <div className="max-w-2xl mx-auto p-4 pb-24 md:pb-4">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">好友</h2>
+        <h2 className="text-2xl font-bold text-stone-900 mb-6">好友</h2>
 
         {/* Tabs */}
         <div className="flex gap-2 mb-6">
@@ -146,7 +146,7 @@ export default function Friends() {
               key={key}
               onClick={() => setTab(key as typeof tab)}
               className={`flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-colors ${
-                tab === key ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                tab === key ? 'bg-terracotta-600 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
               }`}
             >
               <Icon className="w-4 h-4" />
@@ -156,22 +156,22 @@ export default function Friends() {
         </div>
 
         {/* Invite Link */}
-        <div className="bg-indigo-50 rounded-xl p-4 mb-6">
+        <div className="bg-terracotta-50 rounded-xl p-4 mb-6">
           <div className="flex items-center gap-2 mb-2">
-            <LinkIcon className="w-5 h-5 text-indigo-600" />
-            <span className="font-medium text-indigo-900">邀请链接</span>
+            <LinkIcon className="w-5 h-5 text-terracotta-600" />
+            <span className="font-medium text-terracotta-900">邀请链接</span>
           </div>
           <div className="flex gap-2">
             <input
               type="text"
               value={inviteLink}
               readOnly
-              className="flex-1 px-3 py-2 bg-white rounded-lg text-sm text-gray-600"
+              className="flex-1 px-3 py-2 bg-white rounded-lg text-sm text-stone-600"
             />
             <button
               onClick={copyInviteLink}
               className={`px-4 py-2 text-white rounded-lg flex items-center gap-2 transition-colors ${
-                copied ? 'bg-green-600 hover:bg-green-700' : 'bg-indigo-600 hover:bg-indigo-700'
+                copied ? 'bg-green-600 hover:bg-green-700' : 'bg-terracotta-600 hover:bg-terracotta-700'
               }`}
             >
               {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
@@ -187,22 +187,22 @@ export default function Friends() {
         {tab === 'friends' && (
           <div className="space-y-3">
             {friends.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
+              <div className="text-center py-12 text-stone-500">
                 还没有好友，去搜索或分享邀请链接吧
               </div>
             ) : (
               friends.map((friend) => (
                 <div key={friend.id} className="flex items-center gap-3 p-4 bg-white rounded-xl">
-                  <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden">
+                  <div className="w-12 h-12 rounded-full bg-terracotta-100 flex items-center justify-center overflow-hidden">
                     {friend.avatar_url ? (
                       <img src={friend.avatar_url} alt="" className="w-full h-full object-cover" />
                     ) : (
-                      <span className="text-indigo-600 font-medium">{friend.display_name?.[0] || friend.username[0]}</span>
+                      <span className="text-terracotta-600 font-medium">{friend.display_name?.[0] || friend.username[0]}</span>
                     )}
                   </div>
                   <div className="flex-1">
-                    <p className="font-medium text-gray-900">{friend.display_name || friend.username}</p>
-                    <p className="text-sm text-gray-500">@{friend.username}</p>
+                    <p className="font-medium text-stone-900">{friend.display_name || friend.username}</p>
+                    <p className="text-sm text-stone-500">@{friend.username}</p>
                   </div>
                 </div>
               ))
@@ -214,18 +214,18 @@ export default function Friends() {
         {tab === 'requests' && (
           <div className="space-y-3">
             {requests.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
+              <div className="text-center py-12 text-stone-500">
                 暂无好友请求
               </div>
             ) : (
               requests.map((req) => (
                 <div key={req.id} className="flex items-center gap-3 p-4 bg-white rounded-xl">
-                  <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center">
-                    <span className="text-indigo-600 font-medium">{req.profile?.display_name?.[0] || req.profile?.username[0]}</span>
+                  <div className="w-12 h-12 rounded-full bg-terracotta-100 flex items-center justify-center">
+                    <span className="text-terracotta-600 font-medium">{req.profile?.display_name?.[0] || req.profile?.username[0]}</span>
                   </div>
                   <div className="flex-1">
-                    <p className="font-medium text-gray-900">{req.profile?.display_name || req.profile?.username}</p>
-                    <p className="text-sm text-gray-500">@{req.profile?.username}</p>
+                    <p className="font-medium text-stone-900">{req.profile?.display_name || req.profile?.username}</p>
+                    <p className="text-sm text-stone-500">@{req.profile?.username}</p>
                   </div>
                   <div className="flex gap-2">
                     <button
@@ -252,20 +252,20 @@ export default function Friends() {
           <div>
             <div className="flex gap-2 mb-6">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && searchUsers()}
                   placeholder="搜索用户名或邮箱..."
-                  className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-3 bg-white border border-stone-200 rounded-xl focus:ring-2 focus:ring-terracotta-500 focus:border-transparent"
                 />
               </div>
               <button
                 onClick={searchUsers}
                 disabled={searching}
-                className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 disabled:opacity-50"
+                className="px-6 py-3 bg-terracotta-600 text-white rounded-xl font-medium hover:bg-terracotta-700 disabled:opacity-50"
               >
                 搜索
               </button>
@@ -274,16 +274,16 @@ export default function Friends() {
             <div className="space-y-3">
               {searchResults.map((profile) => (
                 <div key={profile.id} className="flex items-center gap-3 p-4 bg-white rounded-xl">
-                  <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center">
-                    <span className="text-indigo-600 font-medium">{profile.display_name?.[0] || profile.username[0]}</span>
+                  <div className="w-12 h-12 rounded-full bg-terracotta-100 flex items-center justify-center">
+                    <span className="text-terracotta-600 font-medium">{profile.display_name?.[0] || profile.username[0]}</span>
                   </div>
                   <div className="flex-1">
-                    <p className="font-medium text-gray-900">{profile.display_name || profile.username}</p>
-                    <p className="text-sm text-gray-500">@{profile.username}</p>
+                    <p className="font-medium text-stone-900">{profile.display_name || profile.username}</p>
+                    <p className="text-sm text-stone-500">@{profile.username}</p>
                   </div>
                   <button
                     onClick={() => sendFriendRequest(profile.id)}
-                    className="px-4 py-2 bg-indigo-100 text-indigo-600 rounded-lg font-medium hover:bg-indigo-200"
+                    className="px-4 py-2 bg-terracotta-100 text-terracotta-600 rounded-lg font-medium hover:bg-terracotta-200"
                   >
                     添加好友
                   </button>

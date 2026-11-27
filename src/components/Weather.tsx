@@ -379,7 +379,7 @@ export default function Weather() {
     <div className="flex items-center gap-3 text-stone-600">
       <div className="flex items-center gap-1.5">
         <MapPin className="w-3.5 h-3.5 text-terracotta-500" />
-        <span className="text-sm">{weather.city}</span>
+        <span className="text-sm font-medium">{weather.city}</span>
         {formattedTime && (
           <span className="text-xs text-stone-400 ml-1">{formattedTime}</span>
         )}

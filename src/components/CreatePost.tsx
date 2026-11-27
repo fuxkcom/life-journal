@@ -133,7 +133,7 @@ const CreatePost = () => {
         value={content}
         onChange={(e) => setContent(e.target.value)}
         placeholder="分享你的生活点滴..."
-        className="w-full p-4 border border-gray-300 rounded-lg mb-4 resize-none"
+        className="w-full p-4 border border-stone-300 rounded-lg mb-4 resize-none"
         rows={4}
         required
       />
@@ -162,7 +162,7 @@ const CreatePost = () => {
       
       <div className="flex flex-wrap gap-3 items-center">
         {/* 图片上传按钮 */}
-        <label className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-lg cursor-pointer hover:bg-blue-100">
+        <label className="flex items-center gap-2 px-4 py-2 bg-terracotta-50 text-terracotta-700 rounded-lg cursor-pointer hover:bg-terracotta-100">
           <Upload className="w-5 h-5" />
           添加图片
           <input
@@ -174,7 +174,7 @@ const CreatePost = () => {
           />
         </label>
         
-        <span className="text-gray-500 text-sm">
+        <span className="text-stone-500 text-sm">
           已选择 {images.length}/9 张图片
         </span>
         
@@ -184,13 +184,13 @@ const CreatePost = () => {
         <button
           type="submit"
           disabled={uploading || !content.trim()}
-          className="px-6 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-6 py-2 bg-gradient-to-r from-terracotta-500 to-terracotta-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {uploading ? '发布中...' : '发布'}
         </button>
       </div>
       
-      <div className="mt-3 text-sm text-gray-500">
+      <div className="mt-3 text-sm text-stone-500">
         <p>💡 提示：图片将上传到 Supabase Storage，URL 会保存在数据库的 image_urls 字段</p>
       </div>
     </form>
