@@ -1,12 +1,35 @@
 import path from "path"
+import fs from "fs"
 import react from "@vitejs/plugin-react"
-import { defineConfig } from "vite"
+import { defineConfig, type Plugin } from "vite"
 import sourceIdentifierPlugin from 'vite-plugin-source-identifier'
 
 const isProd = process.env.BUILD_MODE === 'prod'
+
+// GitHub Pages 不支持 SPA 路由回退：直接访问 /login、/register 等子路径会返回
+// GitHub Pages 默认 404。构建完成后把 dist/index.html 复制一份为 dist/404.html，
+// GitHub Pages 会用它来响应所有不存在的路径，应用随即接管路由，从而解决刷新/分享 404。
+// 注意：必须复制构建后的 index.html（内含带哈希的 JS/CSS 资源路径），
+// 不能直接在 public/ 放一份源码版 index.html（它引用的是 /src/main.tsx，构建后不存在）。
+function spaFallback404(): Plugin {
+  return {
+    name: 'spa-fallback-404',
+    closeBundle() {
+      const distDir = path.resolve(__dirname, 'dist')
+      const indexHtml = path.join(distDir, 'index.html')
+      const notFoundHtml = path.join(distDir, '404.html')
+      if (fs.existsSync(indexHtml)) {
+        fs.copyFileSync(indexHtml, notFoundHtml)
+        console.log('SPA fallback: dist/404.html 已从 dist/index.html 生成')
+      }
+    },
+  }
+}
+
 export default defineConfig({
   plugins: [
     react(),
+    spaFallback404(),
     sourceIdentifierPlugin({
       enabled: !isProd,
       attributePrefix: 'data-matrix',

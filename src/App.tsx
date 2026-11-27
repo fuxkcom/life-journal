@@ -1,5 +1,5 @@
-import { Suspense, lazy } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { Suspense, lazy, useEffect } from 'react'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 
 // 路由懒加载：每个页面单独打包，首屏只下载当前页面需要的代码，
@@ -15,10 +15,34 @@ const Friends = lazy(() => import('./pages/Friends'))
 const Chat = lazy(() => import('./pages/Chat'))
 const Profile = lazy(() => import('./pages/Profile'))
 const Invite = lazy(() => import('./pages/Invite'))
+const Terms = lazy(() => import('./pages/Terms'))
+const Privacy = lazy(() => import('./pages/Privacy'))
+const NotFound = lazy(() => import('./pages/NotFound'))
 
+// 各公开页面的独立标题：路由变化时同步更新 document.title，
+// 避免所有页面共用同一个标题（不利于 SEO 与浏览器标签页识别）。
+const PAGE_TITLES: Record<string, string> = {
+  '/welcome': '生活日志 - 记录美好生活',
+  '/login': '登录 - 生活日志',
+  '/register': '注册 - 生活日志',
+  '/forgot-password': '找回密码 - 生活日志',
+  '/reset-password': '重置密码 - 生活日志',
+  '/terms': '服务条款 - 生活日志',
+  '/privacy': '隐私政策 - 生活日志',
+}
+
+function usePageTitle() {
+  const { pathname } = useLocation()
+  useEffect(() => {
+    document.title = PAGE_TITLES[pathname] ?? '生活日志 - 记录美好生活'
+  }, [pathname])
+}
+
+// 轻量加载指示：只在屏幕中央显示一个小转圈，不再铺满全屏白底，
+// 避免路由切换 / 鉴权等待时出现大面积白屏闪烁。
 function PageLoader() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-stone-50">
+    <div className="flex items-center justify-center py-24" role="status" aria-label="加载中">
       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-terracotta-500"></div>
     </div>
   )
@@ -54,24 +78,35 @@ function LandingRoute({ children }: { children: React.ReactNode }) {
   return user ? <Navigate to="/" /> : <>{children}</>
 }
 
+function AppRoutes() {
+  usePageTitle()
+  return (
+    <Routes>
+      <Route path="/welcome" element={<LandingRoute><Landing /></LandingRoute>} />
+      <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+      <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+      <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/terms" element={<Terms />} />
+      <Route path="/privacy" element={<Privacy />} />
+      <Route path="/invite/:userId" element={<Invite />} />
+      <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+      <Route path="/new-post" element={<ProtectedRoute><NewPost /></ProtectedRoute>} />
+      <Route path="/friends" element={<ProtectedRoute><Friends /></ProtectedRoute>} />
+      <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
+      <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+      {/* 未知路由：站内 404 页（带返回首页按钮），不再渲染空白页 */}
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  )
+}
+
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <Suspense fallback={<PageLoader />}>
-          <Routes>
-            <Route path="/welcome" element={<LandingRoute><Landing /></LandingRoute>} />
-            <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-            <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
-            <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/invite/:userId" element={<Invite />} />
-            <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
-            <Route path="/new-post" element={<ProtectedRoute><NewPost /></ProtectedRoute>} />
-            <Route path="/friends" element={<ProtectedRoute><Friends /></ProtectedRoute>} />
-            <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
-            <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-          </Routes>
+          <AppRoutes />
         </Suspense>
       </AuthProvider>
     </BrowserRouter>

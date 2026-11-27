@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /welcome
+Allow: /login
+Allow: /register
+Allow: /forgot-password
+Allow: /terms
+Allow: /privacy
+Disallow: /reset-password
+Disallow: /invite/
+
+Sitemap: https://fuxk.indevs.in/sitemap.xml

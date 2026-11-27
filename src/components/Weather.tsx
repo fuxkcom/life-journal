@@ -29,6 +29,13 @@ const defaultCities = [
   { name: '广州', lat: 23.1291, lon: 113.2644 },
 ]
 
+// 天气请求总超时：定位 + 接口任意一步超过 3 秒即放弃，显示“天气暂不可用”，
+// 不再让用户长时间卡在“获取天气...”。
+const WEATHER_TIMEOUT_MS = 3000
+// 天气缓存：30 分钟内复用同一份结果，避免每次进首页都重新定位、重新请求。
+const CACHE_KEY = 'life-journal-weather'
+const CACHE_TTL_MS = 30 * 60 * 1000
+
 // 后备方案：根据经纬度粗略判断中国部分城市
 const getCityByCoords = (lat: number, lon: number): string => {
   if (lat >= 22.4 && lat <= 22.8 && lon >= 113.7 && lon <= 114.6) return '深圳'
@@ -50,10 +57,11 @@ const getCityByCoords = (lat: number, lon: number): string => {
 }
 
 // 使用 OpenStreetMap Nominatim API 进行反向地理编码（全球覆盖）
-const reverseGeocodeWithNominatim = async (lat: number, lon: number): Promise<string> => {
+const reverseGeocodeWithNominatim = async (lat: number, lon: number, signal: AbortSignal): Promise<string> => {
   try {
     const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`
     const response = await fetch(url, {
+      signal,
       headers: {
         // 请替换为你的应用名称和联系方式（必须设置，否则可能被限流）
         'User-Agent': 'MyWeatherApp/1.0 (your-email@example.com)',
@@ -72,20 +80,23 @@ const reverseGeocodeWithNominatim = async (lat: number, lon: number): Promise<st
   }
 }
 
-// IP 定位：获取城市和近似坐标（使用 ip-api.com，免费、全球覆盖）
-const getLocationByIP = async (): Promise<{ city: string; lat: number; lon: number } | null> => {
+const readCachedWeather = (): WeatherData | null => {
   try {
-    const response = await fetch('http://ip-api.com/json/?fields=status,message,city,lat,lon')
-    if (!response.ok) return null
-    const data = await response.json()
-    if (data.status !== 'success') return null
-    return {
-      city: data.city,
-      lat: data.lat,
-      lon: data.lon,
-    }
+    const raw = sessionStorage.getItem(CACHE_KEY)
+    if (!raw) return null
+    const { data, savedAt } = JSON.parse(raw) as { data: WeatherData; savedAt: number }
+    if (Date.now() - savedAt > CACHE_TTL_MS) return null
+    return data
   } catch {
     return null
+  }
+}
+
+const saveCachedWeather = (data: WeatherData) => {
+  try {
+    sessionStorage.setItem(CACHE_KEY, JSON.stringify({ data, savedAt: Date.now() }))
+  } catch {
+    // 浏览器禁用存储时忽略，不影响天气展示
   }
 }
 
@@ -95,13 +106,27 @@ export default function Weather() {
   const [error, setError] = useState(false)
 
   useEffect(() => {
+    // 先读缓存：30 分钟内直接展示，不再发请求
+    const cached = readCachedWeather()
+    if (cached) {
+      setWeather(cached)
+      setLoading(false)
+      setError(false)
+      return
+    }
+
+    const controller = new AbortController()
+    // 总超时：定位、逆地理编码、天气接口任意一步拖慢，3 秒后整体放弃。
+    const timeoutId = window.setTimeout(() => controller.abort(), WEATHER_TIMEOUT_MS)
+
     const fetchWeather = async (lat: number, lon: number, cityName?: string) => {
       try {
         const res = await fetch(
-          `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&timezone=auto`
+          `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&timezone=auto`,
+          { signal: controller.signal }
         )
         if (!res.ok) throw new Error('Weather API failed')
-        
+
         const data = await res.json()
         const temp = Math.round(data.current.temperature_2m)
         const code = data.current.weather_code
@@ -117,8 +142,10 @@ export default function Weather() {
         else if (code <= 99) { condition = '雷雨'; icon = 'thunderstorm' }
 
         // 如果没有传入城市名，则通过 Nominatim 获取
-        const city = cityName || await reverseGeocodeWithNominatim(lat, lon)
-        setWeather({ temp, condition, city, icon, localTime })
+        const city = cityName || await reverseGeocodeWithNominatim(lat, lon, controller.signal)
+        const result = { temp, condition, city, icon, localTime }
+        setWeather(result)
+        saveCachedWeather(result)
         setError(false)
       } catch {
         setError(true)
@@ -129,7 +156,7 @@ export default function Weather() {
     }
 
     const getLocationAndWeather = async () => {
-      // 先尝试浏览器精确定位
+      // 先尝试浏览器精确定位（3 秒超时）
       if ('geolocation' in navigator) {
         navigator.geolocation.getCurrentPosition(
           async (position) => {
@@ -137,35 +164,30 @@ export default function Weather() {
             await fetchWeather(latitude, longitude) // 通过 Nominatim 获取城市
           },
           async () => {
-            // 浏览器定位失败 → 尝试 IP 定位
-            const ipLocation = await getLocationByIP()
-            if (ipLocation) {
-              // IP 定位成功，使用 IP 提供的城市名（不经过逆地理编码）
-              await fetchWeather(ipLocation.lat, ipLocation.lon, ipLocation.city)
-            } else {
-              // IP 定位也失败 → 使用默认城市（深圳）并标记
-              const defaultCity = defaultCities[0]
-              await fetchWeather(defaultCity.lat, defaultCity.lon, defaultCity.name + '（默认）')
-            }
+            // 浏览器定位失败或被拒绝 → 直接使用默认城市（深圳）并标记。
+            // 注：旧代码曾用 http://ip-api.com 做 IP 定位，但在 HTTPS 站点上
+            // 该 http 请求会被浏览器作为混合内容直接拦截，实际上从未生效，
+            // 故改为不再经过 IP 定位，直接落到默认城市。
+            const defaultCity = defaultCities[0]
+            await fetchWeather(defaultCity.lat, defaultCity.lon, defaultCity.name + '（默认）')
           },
-          { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+          { enableHighAccuracy: true, timeout: WEATHER_TIMEOUT_MS, maximumAge: 300000 }
         )
       } else {
-        // 浏览器不支持定位 → 直接尝试 IP 定位
-        const ipLocation = await getLocationByIP()
-        if (ipLocation) {
-          await fetchWeather(ipLocation.lat, ipLocation.lon, ipLocation.city)
-        } else {
-          const defaultCity = defaultCities[0]
-          await fetchWeather(defaultCity.lat, defaultCity.lon, defaultCity.name + '（默认）')
-        }
+        // 浏览器不支持定位 → 直接使用默认城市（深圳）
+        const defaultCity = defaultCities[0]
+        await fetchWeather(defaultCity.lat, defaultCity.lon, defaultCity.name + '（默认）')
       }
     }
 
     getLocationAndWeather()
-    
+
     const interval = setInterval(getLocationAndWeather, 30 * 60 * 1000)
-    return () => clearInterval(interval)
+    return () => {
+      window.clearTimeout(timeoutId)
+      controller.abort()
+      clearInterval(interval)
+    }
   }, [])
 
   if (loading) {

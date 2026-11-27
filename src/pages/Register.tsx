@@ -193,7 +193,8 @@ export default function Register() {
             <BookOpen className="w-6 h-6 text-white" />
           </div>
           <div className="text-left">
-            <h1 className="font-bold text-2xl text-stone-800 tracking-tight">生活日志</h1>
+            {/* 此处原为 h1，与下方“创建账户”重复成一页两个 h1；改为普通文本，只留一个 h1 */}
+            <span className="block font-bold text-2xl text-stone-800 tracking-tight">生活日志</span>
             <p className="text-sm text-stone-500">记录生活的每一刻</p>
           </div>
         </Link>
