@@ -83,23 +83,44 @@ export const reverseGeocodeWithNominatim = async (lat: number, lon: number): Pro
 };
 
 /**
- * 使用 ip-api.com 进行 IP 定位（免费，但不支持 HTTPS）
+ * 使用 HTTPS 的 IP 定位（免费、支持浏览器跨域）：先 ipwho.is（实测返回
+ * Access-Control-Allow-Origin: *），再 ipapi.co（免费额度按客户端 IP 计，
+ * 共享出口 IP 可能被限流，只作备用）。
+ * 注意：旧代码用的 http://ip-api.com 在 HTTPS 站点上会被浏览器作为混合内容
+ * 直接拦截，实际上从未生效，故不再使用。
  * 返回城市名、纬度、经度，若失败返回 null
  */
 export const getLocationByIP = async (): Promise<{ city: string; lat: number; lon: number } | null> => {
-  try {
-    // 注意：免费版 ip-api.com 不支持 HTTPS，若网站是 HTTPS 环境会报混合内容错误。
-    // 可改用付费 HTTPS 或换用其他服务，如 ipapi.co（需 key）。
-    const response = await fetch('http://ip-api.com/json/?fields=status,message,city,lat,lon');
-    if (!response.ok) return null;
-    const data = await response.json();
-    if (data.status !== 'success') return null;
-    return {
-      city: data.city,
-      lat: data.lat,
-      lon: data.lon,
-    };
-  } catch {
-    return null;
+  const withTimeout = <T,>(p: Promise<T>, ms: number): Promise<T> =>
+    Promise.race([
+      p,
+      new Promise<T>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
+    ])
+
+  const attempts: Array<() => Promise<{ city: string; lat: number; lon: number } | null>> = [
+    async () => {
+      const response = await withTimeout(fetch('https://ipwho.is/'), 3000)
+      if (!response.ok) return null
+      const data = await response.json()
+      if (!data.success || typeof data.latitude !== 'number' || typeof data.longitude !== 'number') return null
+      return { city: data.city || '', lat: data.latitude, lon: data.longitude }
+    },
+    async () => {
+      const response = await withTimeout(fetch('https://ipapi.co/json/'), 3000)
+      if (!response.ok) return null
+      const data = await response.json()
+      if (data.error || typeof data.latitude !== 'number' || typeof data.longitude !== 'number') return null
+      return { city: data.city || '', lat: data.latitude, lon: data.longitude }
+    },
+  ]
+
+  for (const fn of attempts) {
+    try {
+      const result = await fn()
+      if (result) return result
+    } catch {
+      // 换下一个
+    }
   }
+  return null
 };

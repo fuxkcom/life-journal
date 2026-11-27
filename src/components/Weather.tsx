@@ -22,19 +22,21 @@ const weatherIcons: Record<string, React.ElementType> = {
   'wind': Wind,
 }
 
-const defaultCities = [
-  { name: '深圳', lat: 22.5431, lon: 114.0579 },
-  { name: '北京', lat: 39.9042, lon: 116.4074 },
-  { name: '上海', lat: 31.2304, lon: 121.4737 },
-  { name: '广州', lat: 23.1291, lon: 113.2644 },
-]
+// 默认城市：只有前面所有定位手段都失败时才用，并明确标注“（默认）”。
+const SHENZHEN = { name: '深圳', lat: 22.5431, lon: 114.0579 }
 
-// 天气请求总超时：定位 + 接口任意一步超过 3 秒即放弃，显示“天气暂不可用”，
-// 不再让用户长时间卡在“获取天气...”。
-const WEATHER_TIMEOUT_MS = 3000
+// 各步骤的超时上限：单步拖住就放弃走下一步，不让天气拖慢首屏。
+const GEO_TIMEOUT_MS = 2500          // 浏览器定位
+const IP_TIMEOUT_MS = 2500           // IP 定位
+const WEATHER_FETCH_TIMEOUT_MS = 3000 // Open-Meteo 天气接口
+const REVERSE_GEOCODE_TIMEOUT_MS = 2000 // 逆地理编码
 // 天气缓存：30 分钟内复用同一份结果，避免每次进首页都重新定位、重新请求。
 const CACHE_KEY = 'life-journal-weather'
 const CACHE_TTL_MS = 30 * 60 * 1000
+// 上次成功定位的坐标（与 Home/NewPost 共用 localStorage 的 lastLocation）：
+// 24 小时内直接复用，不再重复弹定位授权，天气秒出。
+const SAVED_COORDS_KEY = 'lastLocation'
+const SAVED_COORDS_TTL_MS = 24 * 60 * 60 * 1000
 
 // 后备方案：根据经纬度粗略判断中国部分城市
 const getCityByCoords = (lat: number, lon: number): string => {
@@ -56,27 +58,129 @@ const getCityByCoords = (lat: number, lon: number): string => {
   return '当前位置'
 }
 
-// 使用 OpenStreetMap Nominatim API 进行反向地理编码（全球覆盖）
-const reverseGeocodeWithNominatim = async (lat: number, lon: number, signal: AbortSignal): Promise<string> => {
+// 给单个异步步骤加超时：超时即按失败处理，走下一步。
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => window.setTimeout(() => reject(new Error('timeout')), ms)),
+  ])
+}
+
+// 多个定位手段取“最先成功的那一个”：全部失败或整体超时才放弃。
+// （不能用 Promise.race：某个手段先失败会直接把 race 带崩，
+//   也不能用 Promise.allSettled：会等最慢的那个，白白拖满超时。）
+function firstSuccess<T>(promises: Promise<T>[], timeoutMs: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    let pending = promises.length
+    let done = false
+    const timer = window.setTimeout(() => {
+      if (!done) {
+        done = true
+        reject(new Error('timeout'))
+      }
+    }, timeoutMs)
+    promises.forEach((p) => {
+      p.then((v) => {
+        if (!done) {
+          done = true
+          window.clearTimeout(timer)
+          resolve(v)
+        }
+      }).catch(() => {
+        pending -= 1
+        if (pending === 0 && !done) {
+          done = true
+          window.clearTimeout(timer)
+          reject(new Error('all failed'))
+        }
+      })
+    })
+  })
+}
+
+// 浏览器定位：超时未返回就放弃（注意 getCurrentPosition 本身无法取消，
+// 超时后它的回调就算回来也会被忽略，不会再触发一次天气请求）。
+function getBrowserCoords(): Promise<{ lat: number; lon: number }> {
+  return new Promise((resolve, reject) => {
+    if (!('geolocation' in navigator)) return reject(new Error('no geolocation'))
+    const timer = window.setTimeout(() => reject(new Error('geolocation timeout')), GEO_TIMEOUT_MS)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        window.clearTimeout(timer)
+        resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude })
+      },
+      (err) => {
+        window.clearTimeout(timer)
+        reject(err)
+      },
+      { enableHighAccuracy: false, timeout: GEO_TIMEOUT_MS, maximumAge: 600000 }
+    )
+  })
+}
+
+// HTTPS 的 IP 定位（支持浏览器跨域）：先 ipwho.is（实测返回
+// Access-Control-Allow-Origin: *，无需 key），再 ipapi.co（免费额度按
+// 客户端 IP 计，共享出口 IP 可能被限流，只作备用）。
+// 注意：旧代码用的 http://ip-api.com 在 HTTPS 站点上会被浏览器作为混合内容
+// 直接拦截，实际上从未生效，故不再使用。
+async function getIPLocation(): Promise<{ city: string; lat: number; lon: number } | null> {
+  const attempts: Array<() => Promise<{ city: string; lat: number; lon: number } | null>> = [
+    async () => {
+      const res = await withTimeout(fetch('https://ipwho.is/'), IP_TIMEOUT_MS)
+      if (!res.ok) return null
+      const d = await res.json()
+      if (!d.success || typeof d.latitude !== 'number' || typeof d.longitude !== 'number') return null
+      return { city: (d.city as string) || '', lat: d.latitude, lon: d.longitude }
+    },
+    async () => {
+      const res = await withTimeout(fetch('https://ipapi.co/json/'), IP_TIMEOUT_MS)
+      if (!res.ok) return null
+      const d = await res.json()
+      if (d.error || typeof d.latitude !== 'number' || typeof d.longitude !== 'number') return null
+      return { city: (d.city as string) || '', lat: d.latitude, lon: d.longitude }
+    },
+  ]
+  for (const fn of attempts) {
+    try {
+      const r = await fn()
+      if (r) return r
+    } catch {
+      // 换下一个
+    }
+  }
+  return null
+}
+
+// 逆地理编码：BigDataCloud 免费客户端接口（支持 CORS、中文地名），
+// 失败再试 Nominatim，最后用经纬度范围粗判。
+async function reverseGeocode(lat: number, lon: number): Promise<string> {
+  try {
+    const res = await withTimeout(
+      fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=zh`),
+      REVERSE_GEOCODE_TIMEOUT_MS
+    )
+    if (!res.ok) throw new Error('BigDataCloud failed')
+    const d = await res.json()
+    const city = (d.city as string) || (d.locality as string) || (d.principalSubdivision as string)
+    if (city) return city
+    throw new Error('no city')
+  } catch (e) {
+    console.warn('BigDataCloud 逆地理编码失败，尝试 Nominatim', e)
+  }
+
   try {
     const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`
-    const response = await fetch(url, {
-      signal,
-      headers: {
-        // 请替换为你的应用名称和联系方式（必须设置，否则可能被限流）
-        'User-Agent': 'MyWeatherApp/1.0 (your-email@example.com)',
-        // 新增：请求中文地名
-        'Accept-Language': 'zh-CN,zh;q=0.9'
-      }
-    })
-    if (!response.ok) throw new Error('Nominatim API failed')
-    const data = await response.json()
-    const addr = data.address
-    // 优先返回城市名，如果没有则返回乡镇/县/国家
-    return addr.city || addr.town || addr.village || addr.county || addr.state || addr.country || '当前位置'
-  } catch (error) {
-    console.warn('Nominatim 逆地理编码失败', error)
-    return getCityByCoords(lat, lon) // 回退到中国城市硬编码判断
+    const res = await withTimeout(
+      fetch(url, { headers: { 'Accept-Language': 'zh-CN,zh;q=0.9' } }),
+      REVERSE_GEOCODE_TIMEOUT_MS
+    )
+    if (!res.ok) throw new Error('Nominatim API failed')
+    const d = await res.json()
+    const addr = d.address || {}
+    return addr.city || addr.town || addr.village || addr.county || addr.state || addr.country || getCityByCoords(lat, lon)
+  } catch (e) {
+    console.warn('Nominatim 逆地理编码失败', e)
+    return getCityByCoords(lat, lon)
   }
 }
 
@@ -100,92 +204,142 @@ const saveCachedWeather = (data: WeatherData) => {
   }
 }
 
+const readSavedCoords = (): { lat: number; lon: number } | null => {
+  try {
+    const raw = localStorage.getItem(SAVED_COORDS_KEY)
+    if (!raw) return null
+    const { lat, lon, timestamp } = JSON.parse(raw)
+    if (typeof lat !== 'number' || typeof lon !== 'number') return null
+    if (timestamp && Date.now() - timestamp > SAVED_COORDS_TTL_MS) return null
+    return { lat, lon }
+  } catch {
+    return null
+  }
+}
+
+const saveCoords = (lat: number, lon: number) => {
+  try {
+    localStorage.setItem(SAVED_COORDS_KEY, JSON.stringify({ name: '', lat, lon, timestamp: Date.now() }))
+  } catch {
+    // 忽略存储失败
+  }
+}
+
+// Open-Meteo：免费、免 key、支持浏览器跨域。单次请求 3 秒超时。
+async function fetchOpenMeteo(lat: number, lon: number): Promise<Omit<WeatherData, 'city'> | null> {
+  const controller = new AbortController()
+  const timer = window.setTimeout(() => controller.abort(), WEATHER_FETCH_TIMEOUT_MS)
+  try {
+    const res = await fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&timezone=auto`,
+      { signal: controller.signal }
+    )
+    if (!res.ok) throw new Error('Weather API failed')
+    const data = await res.json()
+    const temp = Math.round(data.current.temperature_2m)
+    const code = data.current.weather_code
+    const localTime = data.current.time
+
+    let condition = '晴'
+    let icon = 'sunny'
+    if (code === 0) { condition = '晴'; icon = 'sunny' }
+    else if (code <= 3) { condition = '多云'; icon = 'clouds' }
+    else if (code <= 49) { condition = '雾'; icon = 'cloudy' }
+    else if (code <= 69) { condition = '雨'; icon = 'rain' }
+    else if (code <= 79) { condition = '雪'; icon = 'snow' }
+    else if (code <= 99) { condition = '雷雨'; icon = 'thunderstorm' }
+
+    return { temp, condition, icon, localTime }
+  } catch (e) {
+    console.warn('Open-Meteo 天气请求失败', e)
+    return null
+  } finally {
+    window.clearTimeout(timer)
+  }
+}
+
 export default function Weather() {
   const [weather, setWeather] = useState<WeatherData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
   useEffect(() => {
-    // 先读缓存：30 分钟内直接展示，不再发请求
-    const cached = readCachedWeather()
-    if (cached) {
-      setWeather(cached)
-      setLoading(false)
-      setError(false)
-      return
-    }
+    let cancelled = false
 
-    const controller = new AbortController()
-    // 总超时：定位、逆地理编码、天气接口任意一步拖慢，3 秒后整体放弃。
-    const timeoutId = window.setTimeout(() => controller.abort(), WEATHER_TIMEOUT_MS)
-
-    const fetchWeather = async (lat: number, lon: number, cityName?: string) => {
-      try {
-        const res = await fetch(
-          `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&timezone=auto`,
-          { signal: controller.signal }
-        )
-        if (!res.ok) throw new Error('Weather API failed')
-
-        const data = await res.json()
-        const temp = Math.round(data.current.temperature_2m)
-        const code = data.current.weather_code
-        const localTime = data.current.time // 格式如 "2025-02-26T10:30"
-
-        let condition = '晴'
-        let icon = 'sunny'
-        if (code === 0) { condition = '晴'; icon = 'sunny' }
-        else if (code <= 3) { condition = '多云'; icon = 'clouds' }
-        else if (code <= 49) { condition = '雾'; icon = 'cloudy' }
-        else if (code <= 69) { condition = '雨'; icon = 'rain' }
-        else if (code <= 79) { condition = '雪'; icon = 'snow' }
-        else if (code <= 99) { condition = '雷雨'; icon = 'thunderstorm' }
-
-        // 如果没有传入城市名，则通过 Nominatim 获取
-        const city = cityName || await reverseGeocodeWithNominatim(lat, lon, controller.signal)
-        const result = { temp, condition, city, icon, localTime }
-        setWeather(result)
-        saveCachedWeather(result)
+    const loadWeather = async () => {
+      // 先读缓存：30 分钟内直接展示，不再发请求
+      const cached = readCachedWeather()
+      if (cached) {
+        if (cancelled) return
+        setWeather(cached)
+        setLoading(false)
         setError(false)
-      } catch {
+        return
+      }
+
+      // 定位链（按顺序降级，务必拿到天气）：
+      // ① 上次保存的坐标（24 小时内，不再弹定位）→ ② 浏览器定位与 IP 定位
+      //    同时跑，谁先成功用谁 → ③ 深圳默认坐标（标注“默认”）。
+      let coords: { lat: number; lon: number } | null = readSavedCoords()
+      let cityName: string | undefined
+
+      if (!coords) {
+        try {
+          const located = await firstSuccess<{ lat: number; lon: number; city?: string }>([
+            getBrowserCoords().then((c) => ({ ...c })),
+            getIPLocation().then((ip) => {
+              if (!ip) throw new Error('IP location failed')
+              return { lat: ip.lat, lon: ip.lon, city: ip.city }
+            }),
+          ], Math.max(GEO_TIMEOUT_MS, IP_TIMEOUT_MS))
+          coords = { lat: located.lat, lon: located.lon }
+          cityName = located.city || undefined
+        } catch {
+          coords = null
+        }
+      }
+
+      if (!coords) {
+        coords = { lat: SHENZHEN.lat, lon: SHENZHEN.lon }
+        cityName = SHENZHEN.name + '（默认）'
+      }
+
+      // 天气接口：先用定位到的坐标查；失败再用深圳默认坐标重试一次；
+      // 两次都失败才显示“天气暂不可用”。
+      let wx = await fetchOpenMeteo(coords.lat, coords.lon)
+      if (!wx) {
+        wx = await fetchOpenMeteo(SHENZHEN.lat, SHENZHEN.lon)
+        if (wx) {
+          coords = { lat: SHENZHEN.lat, lon: SHENZHEN.lon }
+          cityName = SHENZHEN.name + '（默认）'
+        }
+      }
+
+      if (cancelled) return
+      if (!wx) {
         setError(true)
         setWeather(null)
-      } finally {
         setLoading(false)
+        return
       }
+
+      // 城市名：IP 定位已给出的优先；否则逆地理编码；都不行用经纬度粗判。
+      const city = cityName || (await reverseGeocode(coords.lat, coords.lon))
+      const result: WeatherData = { ...wx, city }
+      if (cancelled) return
+      setWeather(result)
+      saveCachedWeather(result)
+      saveCoords(coords.lat, coords.lon)
+      setError(false)
+      setLoading(false)
     }
 
-    const getLocationAndWeather = async () => {
-      // 先尝试浏览器精确定位（3 秒超时）
-      if ('geolocation' in navigator) {
-        navigator.geolocation.getCurrentPosition(
-          async (position) => {
-            const { latitude, longitude } = position.coords
-            await fetchWeather(latitude, longitude) // 通过 Nominatim 获取城市
-          },
-          async () => {
-            // 浏览器定位失败或被拒绝 → 直接使用默认城市（深圳）并标记。
-            // 注：旧代码曾用 http://ip-api.com 做 IP 定位，但在 HTTPS 站点上
-            // 该 http 请求会被浏览器作为混合内容直接拦截，实际上从未生效，
-            // 故改为不再经过 IP 定位，直接落到默认城市。
-            const defaultCity = defaultCities[0]
-            await fetchWeather(defaultCity.lat, defaultCity.lon, defaultCity.name + '（默认）')
-          },
-          { enableHighAccuracy: true, timeout: WEATHER_TIMEOUT_MS, maximumAge: 300000 }
-        )
-      } else {
-        // 浏览器不支持定位 → 直接使用默认城市（深圳）
-        const defaultCity = defaultCities[0]
-        await fetchWeather(defaultCity.lat, defaultCity.lon, defaultCity.name + '（默认）')
-      }
-    }
+    loadWeather()
 
-    getLocationAndWeather()
-
-    const interval = setInterval(getLocationAndWeather, 30 * 60 * 1000)
+    // 每 30 分钟刷新一次：走同一流程（有缓存/已存坐标时不重复弹定位）。
+    const interval = setInterval(loadWeather, 30 * 60 * 1000)
     return () => {
-      window.clearTimeout(timeoutId)
-      controller.abort()
+      cancelled = true
       clearInterval(interval)
     }
   }, [])

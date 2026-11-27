@@ -95,3 +95,22 @@ body {
   color: #B23A48;
 }
 
+
+/* 实时资讯自动向上滚动（跑马灯）：列表复制一份首尾相接，
+   translateY(-50%) 正好滚完第一份，实现无缝循环；鼠标悬停时暂停。 */
+@keyframes news-ticker-scroll {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-50%);
+  }
+}
+
+.news-ticker {
+  animation: news-ticker-scroll 45s linear infinite;
+}
+
+.news-ticker:hover {
+  animation-play-state: paused;
+}

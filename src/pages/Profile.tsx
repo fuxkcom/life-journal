@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -16,8 +16,21 @@ function validatePassword(password: string) {
 export default function Profile() {
   const { user, profile, refreshProfile } = useAuth()
   const navigate = useNavigate()
+  // 注意：profile 是 AuthContext 在后台异步拉取的，组件首次渲染时经常还是 null。
+  // 原来 useState(profile?.display_name || '') 只在挂载瞬间取一次值，之后 profile
+  // 回来了表单也不会更新，所以昵称/简介一直显示为空；用户一旦点保存，就会把
+  // 空值写回数据库、把已有昵称和简介清空。下面用 effect 在 profile 到达后再同步，
+  // 并用“是否编辑过”标记保护：用户没动过的字段永远不拿空值覆盖已有数据。
   const [displayName, setDisplayName] = useState(profile?.display_name || '')
   const [bio, setBio] = useState(profile?.bio || '')
+  const [nameEdited, setNameEdited] = useState(false)
+  const [bioEdited, setBioEdited] = useState(false)
+
+  useEffect(() => {
+    if (!profile) return
+    if (!nameEdited) setDisplayName(profile.display_name || '')
+    if (!bioEdited) setBio(profile.bio || '')
+  }, [profile, nameEdited, bioEdited])
   const [loading, setLoading] = useState(false)
   const [avatarUploading, setAvatarUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -102,11 +115,20 @@ export default function Profile() {
     if (!user) return
     setLoading(true)
 
+    // 防清空保护：如果用户没编辑过某字段、而表单值是空的（比如 profile 还没
+    // 加载完就点了保存），用数据库里已有的值兜底，绝不把空字符串写回去。
+    const nameToSave = displayName.trim() === '' && !nameEdited
+      ? (profile?.display_name || '')
+      : displayName.trim()
+    const bioToSave = bio.trim() === '' && !bioEdited
+      ? (profile?.bio || '')
+      : bio.trim()
+
     const { error } = await supabase
       .from('profiles')
       .update({
-        display_name: displayName.trim(),
-        bio: bio.trim(),
+        display_name: nameToSave,
+        bio: bioToSave,
         updated_at: new Date().toISOString()
       })
       .eq('id', user.id)
@@ -174,7 +196,7 @@ export default function Profile() {
             <input
               type="text"
               value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
+              onChange={(e) => { setDisplayName(e.target.value); setNameEdited(true) }}
               placeholder="设置你的昵称"
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
@@ -185,7 +207,7 @@ export default function Profile() {
             <label className="block text-sm font-medium text-gray-700 mb-2">个人简介</label>
             <textarea
               value={bio}
-              onChange={(e) => setBio(e.target.value)}
+              onChange={(e) => { setBio(e.target.value); setBioEdited(true) }}
               placeholder="介绍一下自己..."
               rows={4}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"

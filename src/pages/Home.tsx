@@ -82,6 +82,8 @@ interface NewsItem {
   source: { name: string }
   url: string
   urlToImage: string | null
+  hot?: string        // 热搜类来源的热度，如“123万热度”
+  publishedAt?: number // RSS 来源的发布时间戳，用于展示时间
 }
 
 // ==================== 帖子图片画廊组件（完整保留）====================
@@ -360,12 +362,43 @@ const PostImageGallery = ({
   );
 };
 
-// ==================== 右侧栏组件（真实新闻：BBC中文网官方 RSS）====================
+// ==================== 右侧栏组件（实时新闻）====================
+// 抓取链（按顺序降级）：
+//   链路 1（主）：国内热搜聚合 api.vvhan.com（免费、免 key、支持浏览器跨域），
+//            知乎热榜 + 百度热搜并行拉取。
+//   链路 2（备）：BBC 中文网官方 RSS，先走 rss2json，再走 allorigins
+//            通用 CORS 代理 + 浏览器本地 XML 解析。
+// 为什么换主源：复测时新闻栏只显示“资讯暂不可用”。实测 rss2json 偶尔能通，
+// 但匿名额度在共享出口 IP 上很容易被限流；allorigins 在当前网络下直接
+// 超时（12 秒无响应）；而 BBC 的 RSS 源本身在国内也常被墙。三条旧链路
+// 同时失效的概率不低。vvhan 是国内服务，直连更可靠；链路 2 保留作备用。
+// 全部失败时优先用 30 分钟内的真实新闻缓存，再失败才显示“资讯暂不可用”，
+// 不再展示任何写死的假新闻。
+const VVHAN_HOTLISTS: { type: string; source: string }[] = [
+  { type: 'zhihuHot', source: '知乎热榜' },
+  { type: 'baiduHot', source: '百度热搜' },
+];
+async function fetchViaVvhan(list: { type: string; source: string }, signal: AbortSignal): Promise<RawNewsItem[]> {
+  const res = await fetch(`https://api.vvhan.com/api/hotlist?type=${list.type}`, { signal })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  const data = await res.json()
+  if (!data.success || !Array.isArray(data.data)) throw new Error('数据格式异常')
+
+  // 防御性解析：字段名以文档为准，但个别榜单可能用 word / mobilUrl / heat
+  return data.data.slice(0, 10).map((item: any) => ({
+    title: (item.title || item.word || '') as string,
+    source: { name: list.source },
+    url: (item.url || item.mobilUrl || '#') as string,
+    urlToImage: null,
+    hot: ((item.hot || item.heat || '') as string) || undefined,
+    _pubDate: 0,
+  })).filter((item) => item.title && item.url !== '#')
+}
+
 // 说明：这两个 RSS 地址是 BBC 中文网官方长期维护的公开订阅源（非第三方转发）。
-// 每个源走两条独立链路，任一条失败自动切到另一条，大幅降低"全部失效"的概率：
+// 每个源走两条独立链路，任一条失败自动切到另一条：
 //   链路 A：rss2json.com（若配置了 VITE_NEWS_API_KEY 就带上，避免命中全网共享的匿名限流）
 //   链路 B：allorigins.win 通用 CORS 代理直接拉取原始 XML，浏览器本地用 DOMParser 解析
-//         （不依赖 rss2json 这一个服务，即使它整体挂了也有备份）
 const RSS_FEEDS: { url: string; source: string }[] = [
   { url: 'https://feeds.bbci.co.uk/zhongwen/simp/rss.xml', source: 'BBC中文网' },
   { url: 'http://www.bbc.co.uk/zhongwen/simp/business/index.xml', source: 'BBC中文网·财经' },
@@ -432,12 +465,32 @@ const RightSidebar = memo(() => {
   const [loadingNews, setLoadingNews] = useState(false);
   const [newsError, setNewsError] = useState(false);
 
-  // 获取真实新闻：每个源先试 rss2json，失败（含限流）自动切到 CORS 代理 + 本地 XML 解析；
-  // 全部源都失败时，优先用上次成功的缓存，缓存也没有才展示写死的静态兜底列表。
+  // 获取真实新闻：先走国内热搜聚合（vvhan，知乎热榜 + 百度热搜并行），
+  // 全部失败再走 BBC RSS 备用链（rss2json → CORS 代理 + 本地 XML 解析）；
+  // 全部源都失败时，优先用上次成功的缓存，缓存也没有才显示“资讯暂不可用”。
   const fetchRealNews = async () => {
     setLoadingNews(true);
     setNewsError(false);
 
+    // 链路 1：国内热搜聚合。单个榜单失败不抛错、返回空数组，由调用方汇总判断。
+    const fetchVvhanAll = async (): Promise<RawNewsItem[]> => {
+      const results = await Promise.allSettled(
+        VVHAN_HOTLISTS.map(async (list) => {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), NEWS_FETCH_TIMEOUT);
+          try {
+            return await fetchViaVvhan(list, controller.signal);
+          } finally {
+            clearTimeout(timeoutId);
+          }
+        })
+      );
+      return results
+        .filter((r): r is PromiseFulfilledResult<RawNewsItem[]> => r.status === 'fulfilled')
+        .flatMap((r) => r.value);
+    };
+
+    // 链路 2：BBC RSS。每个源先试 rss2json，失败（含限流）自动切到 CORS 代理 + 本地 XML 解析。
     const fetchOneFeed = async (feed: { url: string; source: string }): Promise<RawNewsItem[]> => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), NEWS_FETCH_TIMEOUT);
@@ -453,26 +506,38 @@ const RightSidebar = memo(() => {
       }
     };
 
-    try {
-      const results = await Promise.allSettled(RSS_FEEDS.map(fetchOneFeed));
-
-      const merged = results
-        .filter((r): r is PromiseFulfilledResult<RawNewsItem[]> => r.status === 'fulfilled')
-        .flatMap((r) => r.value);
-
-      if (merged.length === 0) throw new Error('所有新闻源均不可用');
-
-      // 按发布时间倒序，去重（同标题只保留一条），取前 15 条
+    // 去重（同标题只保留一条），取前 15 条。
+    // 热搜榜按榜单排名本身就是有序的，直接保留原顺序；RSS 则按发布时间倒序。
+    const dedupe = (items: RawNewsItem[]): NewsItem[] => {
       const seen = new Set<string>();
-      const articles: NewsItem[] = merged
-        .sort((a, b) => b._pubDate - a._pubDate)
+      return items
         .filter((item) => {
-          if (seen.has(item.title)) return false;
+          if (!item.title || seen.has(item.title)) return false;
           seen.add(item.title);
           return true;
         })
         .slice(0, 15)
-        .map(({ _pubDate, ...rest }) => rest);
+        .map(({ _pubDate, ...rest }) => ({
+          ...rest,
+          publishedAt: _pubDate > 0 ? _pubDate : undefined,
+        }));
+    };
+
+    try {
+      let merged = await fetchVvhanAll();
+
+      if (merged.length === 0) {
+        console.warn('国内热搜源不可用，切换到 BBC RSS 备用链');
+        const results = await Promise.allSettled(RSS_FEEDS.map(fetchOneFeed));
+        merged = results
+          .filter((r): r is PromiseFulfilledResult<RawNewsItem[]> => r.status === 'fulfilled')
+          .flatMap((r) => r.value)
+          .sort((a, b) => b._pubDate - a._pubDate);
+      }
+
+      if (merged.length === 0) throw new Error('所有新闻源均不可用');
+
+      const articles = dedupe(merged);
 
       setNewsList(articles);
       // 成功获取时写入缓存，供接口下次不可用时使用
@@ -602,14 +667,17 @@ const RightSidebar = memo(() => {
             <Newspaper className="w-5 h-5 text-terracotta-500" />
             <h3 className="font-semibold text-stone-900">实时资讯</h3>
           </div>
-          <button
-            onClick={fetchRealNews}
-            className="text-xs text-stone-400 hover:text-terracotta-500 flex items-center gap-1"
-            disabled={loadingNews}
-          >
-            <RefreshCw className={`w-3 h-3 ${loadingNews ? 'animate-spin' : ''}`} />
-            刷新
-          </button>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-stone-300">自动滚动 · 悬停暂停</span>
+            <button
+              onClick={fetchRealNews}
+              className="text-xs text-stone-400 hover:text-terracotta-500 flex items-center gap-1"
+              disabled={loadingNews}
+            >
+              <RefreshCw className={`w-3 h-3 ${loadingNews ? 'animate-spin' : ''}`} />
+              刷新
+            </button>
+          </div>
         </div>
 
         {loadingNews && (
@@ -620,42 +688,54 @@ const RightSidebar = memo(() => {
           <div className="py-8 text-center text-stone-400">资讯暂不可用，请稍后再试</div>
         )}
 
+        {/* 自动向上滚动的新闻跑马灯：列表复制一份首尾相接，用 CSS 动画
+            translateY(-50%) 实现无缝循环；鼠标悬停时暂停（见 index.css 的
+            .news-ticker）。条数少时也照常滚动，不再是手动滚动条。 */}
         {!loadingNews && !newsError && (
-          <div className="max-h-96 overflow-y-auto pr-1 space-y-3 scrollbar-thin scrollbar-thumb-stone-200">
+          <div className="h-96 overflow-hidden relative">
             {newsList.length === 0 ? (
               <div className="text-center py-8 text-stone-400">暂无新闻</div>
             ) : (
-              newsList.map((item, idx) => (
-                <a
-                  key={idx}
-                  href={item.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block p-3 rounded-xl hover:bg-stone-50 transition-colors border border-stone-100"
-                >
-                  <div className="flex items-start gap-3">
-                    {item.urlToImage && (
-                      <img
-                        src={item.urlToImage}
-                        alt=""
-                        className="w-16 h-16 object-cover rounded-lg shrink-0"
-                        onError={(e) => (e.currentTarget.style.display = 'none')}
-                      />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-stone-900 line-clamp-2 mb-1">
-                        {item.title}
-                      </p>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-stone-400">
-                          {item.source?.name || '资讯'}
-                        </span>
-                        <ExternalLink className="w-3 h-3 text-stone-300" />
+              <div
+                className="news-ticker"
+                style={{ animationDuration: `${Math.max(24, newsList.length * 3)}s` }}
+              >
+                {[...newsList, ...newsList].map((item, idx) => (
+                  <a
+                    key={idx}
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block p-3 mb-3 rounded-xl hover:bg-stone-50 transition-colors border border-stone-100"
+                  >
+                    <div className="flex items-start gap-3">
+                      {item.urlToImage && (
+                        <img
+                          src={item.urlToImage}
+                          alt=""
+                          className="w-16 h-16 object-cover rounded-lg shrink-0"
+                          onError={(e) => (e.currentTarget.style.display = 'none')}
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-stone-900 line-clamp-2 mb-1">
+                          {item.title}
+                        </p>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs text-stone-400 truncate">
+                            {item.source?.name || '资讯'}
+                            {item.hot ? ` · 热度 ${item.hot}` : ''}
+                            {item.publishedAt
+                              ? ` · ${new Date(item.publishedAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })}`
+                              : ''}
+                          </span>
+                          <ExternalLink className="w-3 h-3 text-stone-300 shrink-0" />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </a>
-              ))
+                  </a>
+                ))}
+              </div>
             )}
           </div>
         )}
@@ -962,8 +1042,12 @@ export default function Home() {
       hasInitialized.current = true;
 
       // 从发布页回来（带 refreshFeed 标记）：跳过缓存直接拉新数据，
-      // 否则首页会先恢复发帖前的旧缓存，新动态要等手动刷新才出现
-      const cameFromPublish = (location.state as { refreshFeed?: boolean } | null)?.refreshFeed
+      // 否则首页会先恢复发帖前的旧缓存，新动态要等手动刷新才出现。
+      // 标记有两个来源：路由 state 的 refreshFeed + sessionStorage 备份标记
+      // （路由 state 在个别情况下会丢，备份标记兜底，命中后立即清除）。
+      const state = location.state as { refreshFeed?: boolean } | null
+      const cameFromPublish = state?.refreshFeed || sessionStorage.getItem('post_publish_success') === '1'
+      sessionStorage.removeItem('post_publish_success')
       if (cameFromPublish) {
         window.history.replaceState({}, '')
         setPublishSuccess(true)
@@ -991,6 +1075,13 @@ export default function Home() {
       }
     }
   }, [user]);
+
+  // 发布成功提示 5 秒后自动消失，不用用户手动点“知道了”。
+  useEffect(() => {
+    if (!publishSuccess) return
+    const timer = window.setTimeout(() => setPublishSuccess(false), 5000)
+    return () => window.clearTimeout(timer)
+  }, [publishSuccess])
 
   // 动态列表变化时把最新数据写回缓存（用当前渲染的 posts，
   // 而不是 loadAllData 闭包里调用时的旧值——原来那处保存基本写不进有效缓存）
@@ -1198,6 +1289,9 @@ export default function Home() {
 
     if (!error) {
       setQuickPostContent('')
+      // 首页快速发帖也要给成功反馈（原来成功提示只在从发布页回来时才显示，
+      // 首页直接发帖成功后没有任何提示，用户不知道到底发出去没有）。
+      setPublishSuccess(true)
       loadPosts()
       loadStats()
     }

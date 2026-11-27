@@ -95,6 +95,9 @@ function AppRoutes() {
       <Route path="/friends" element={<ProtectedRoute><Friends /></ProtectedRoute>} />
       <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+      {/* /settings 没有独立设置页，重定向到个人资料页（设置入口都在该页），
+          避免直接访问 /settings 落到站内 404 */}
+      <Route path="/settings" element={<ProtectedRoute><Navigate to="/profile" replace /></ProtectedRoute>} />
       {/* 未知路由：站内 404 页（带返回首页按钮），不再渲染空白页 */}
       <Route path="*" element={<NotFound />} />
     </Routes>

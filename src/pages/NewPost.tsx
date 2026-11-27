@@ -33,21 +33,43 @@ const reverseGeocodeWithNominatim = async (lat: number, lon: number): Promise<st
   }
 }
 
-// IP 定位：获取城市和近似坐标（使用 ip-api.com，免费、全球覆盖）
+// IP 定位：获取城市和近似坐标（HTTPS，支持浏览器跨域：先 ipwho.is，
+// 实测返回 Access-Control-Allow-Origin: *；再 ipapi.co 作备用）。
+// 注意：旧代码用的 http://ip-api.com 在 HTTPS 站点上会被浏览器作为混合内容
+// 直接拦截，实际上从未生效，故不再使用。
 const getLocationByIP = async (): Promise<{ city: string; lat: number; lon: number } | null> => {
-  try {
-    const response = await fetch('http://ip-api.com/json/?fields=status,message,city,lat,lon')
-    if (!response.ok) return null
-    const data = await response.json()
-    if (data.status !== 'success') return null
-    return {
-      city: data.city,
-      lat: data.lat,
-      lon: data.lon,
+  const withTimeout = <T,>(p: Promise<T>, ms: number): Promise<T> =>
+    Promise.race([
+      p,
+      new Promise<T>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
+    ])
+
+  const attempts: Array<() => Promise<{ city: string; lat: number; lon: number } | null>> = [
+    async () => {
+      const response = await withTimeout(fetch('https://ipwho.is/'), 3000)
+      if (!response.ok) return null
+      const data = await response.json()
+      if (!data.success || typeof data.latitude !== 'number' || typeof data.longitude !== 'number') return null
+      return { city: data.city || '', lat: data.latitude, lon: data.longitude }
+    },
+    async () => {
+      const response = await withTimeout(fetch('https://ipapi.co/json/'), 3000)
+      if (!response.ok) return null
+      const data = await response.json()
+      if (data.error || typeof data.latitude !== 'number' || typeof data.longitude !== 'number') return null
+      return { city: data.city || '', lat: data.latitude, lon: data.longitude }
+    },
+  ]
+
+  for (const fn of attempts) {
+    try {
+      const result = await fn()
+      if (result) return result
+    } catch {
+      // 换下一个
     }
-  } catch {
-    return null
   }
+  return null
 }
 
 // 获取地理位置（浏览器定位 + IP 后备）并获取当地当前时间
@@ -273,8 +295,11 @@ export default function NewPost() {
 
       // 发布成功：先清掉首页的动态缓存（键名须与 Home.tsx 里的 HOME_CACHE_KEY 一致），
       // 再带 refreshFeed 标记回首页，让首页跳过缓存直接拉新数据；
-      // 否则首页会先恢复发帖前的旧缓存，新动态要等手动刷新才出现
+      // 否则首页会先恢复发帖前的旧缓存，新动态要等手动刷新才出现。
+      // 成功标记双保险：除了路由 state，再写一份 sessionStorage，
+      // 首页初始化时两个来源任一命中即显示成功提示，避免路由 state 丢失导致提示不见。
       sessionStorage.removeItem('home_page_cache_v2')
+      sessionStorage.setItem('post_publish_success', '1')
       navigate('/', {
         replace: true,
         state: { showSuccess: true, refreshFeed: true }

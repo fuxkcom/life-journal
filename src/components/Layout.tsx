@@ -4,10 +4,13 @@ import { useAuth } from '../contexts/AuthContext'
 import { Home, Users, MessageCircle, User, LogOut, Menu, X, PenSquare, BookOpen, Settings } from 'lucide-react'
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-  const { profile, signOut } = useAuth()
+  const { user, profile, loading, signOut } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  // 个人资料是后台异步拉取的：user 已就绪但 profile 还没回来时，不能先渲染
+  // “@undefined”这样的半成品，显示骨架占位，等资料到了再渲染真名。
+  const profileLoading = loading || (!!user && !profile)
 
   const handleSignOut = async () => {
     await signOut()
@@ -49,12 +52,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <span className="font-medium">{item.label}</span>
             </Link>
           ))}
-          {/* 设置：指向个人资料页（昵称、头像等设置都在该页），独立入口方便找到 */}
+          {/* 设置：指向 /settings（由 App 路由重定向到个人资料页，昵称、头像等设置都在该页），独立入口方便找到 */}
           <div className="pt-2 mt-2 border-t border-stone-100">
             <Link
-              to="/profile"
+              to="/settings"
               className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 ${
-                location.pathname === '/profile'
+                location.pathname === '/profile' || location.pathname === '/settings'
                   ? 'bg-terracotta-100 text-terracotta-700'
                   : 'text-stone-600 hover:bg-stone-100'
               }`}
@@ -66,19 +69,29 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div className="p-4 border-t border-stone-100">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-2xl bg-terracotta-100 flex items-center justify-center overflow-hidden">
-              {profile?.avatar_url ? (
-                <img src={profile.avatar_url} alt="" className="w-10 h-10 object-cover" />
-              ) : (
-                <User className="w-5 h-5 text-terracotta-600" />
-              )}
+          {profileLoading ? (
+            <div className="flex items-center gap-3 mb-4" aria-label="加载中">
+              <div className="w-10 h-10 rounded-2xl bg-stone-100 animate-pulse" />
+              <div className="flex-1 min-w-0 space-y-2">
+                <div className="h-3.5 w-20 rounded bg-stone-100 animate-pulse" />
+                <div className="h-3 w-16 rounded bg-stone-100 animate-pulse" />
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-medium text-stone-900 truncate">{profile?.display_name || profile?.username}</p>
-              <p className="text-sm text-stone-500 truncate">@{profile?.username}</p>
+          ) : (
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-2xl bg-terracotta-100 flex items-center justify-center overflow-hidden">
+                {profile?.avatar_url ? (
+                  <img src={profile.avatar_url} alt="" className="w-10 h-10 object-cover" />
+                ) : (
+                  <User className="w-5 h-5 text-terracotta-600" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-stone-900 truncate">{profile?.display_name || profile?.username}</p>
+                <p className="text-sm text-stone-500 truncate">@{profile?.username}</p>
+              </div>
             </div>
-          </div>
+          )}
           <button
             onClick={handleSignOut}
             className="w-full flex items-center gap-2 px-4 py-2.5 text-stone-600 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all duration-300"
@@ -121,10 +134,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </Link>
             ))}
             <Link
-              to="/profile"
+              to="/settings"
               onClick={() => setMobileMenuOpen(false)}
               className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 ${
-                location.pathname === '/profile'
+                location.pathname === '/profile' || location.pathname === '/settings'
                   ? 'bg-terracotta-100 text-terracotta-700'
                   : 'text-stone-600'
               }`}
