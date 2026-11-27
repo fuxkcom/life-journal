@@ -271,10 +271,13 @@ export default function NewPost() {
         throw error
       }
 
-      // 发布成功，返回首页
-      navigate('/', { 
+      // 发布成功：先清掉首页的动态缓存（键名须与 Home.tsx 里的 HOME_CACHE_KEY 一致），
+      // 再带 refreshFeed 标记回首页，让首页跳过缓存直接拉新数据；
+      // 否则首页会先恢复发帖前的旧缓存，新动态要等手动刷新才出现
+      sessionStorage.removeItem('home_page_cache_v2')
+      navigate('/', {
         replace: true,
-        state: { showSuccess: true }
+        state: { showSuccess: true, refreshFeed: true }
       })
       
     } catch (error: any) {

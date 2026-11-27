@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { BookOpen, ArrowLeft } from 'lucide-react'
 
-// 隐私政策：与“生活日志”（私密生活记录 + 好友分享）应用的实际功能相符，
+// 隐私政策：与“拾忆人生”（私密生活记录 + 好友分享）应用的实际功能相符，
 // 覆盖数据收集、用途、分享、存储与安全、删除账号、Cookie/本地存储、未成年人等要点。
 // 注意：本页为通用中文政策文本，不构成法律意见；正式商用前建议请专业人士审阅。
 // 联系方式未写具体邮箱——代码库中没有公开的联系邮箱，不编造，统一写“应用内反馈”。
@@ -14,7 +14,7 @@ export default function Privacy() {
             <div className="w-9 h-9 bg-gradient-to-br from-terracotta-400 to-terracotta-600 rounded-xl flex items-center justify-center">
               <BookOpen className="w-5 h-5 text-white" />
             </div>
-            <span className="font-semibold text-stone-800 text-lg">生活日志</span>
+            <span className="font-semibold text-stone-800 text-lg">拾忆人生</span>
           </Link>
           <Link to="/welcome" className="inline-flex items-center gap-1 text-sm text-stone-600 hover:text-terracotta-600">
             <ArrowLeft className="w-4 h-4" />

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { Home, Users, MessageCircle, User, LogOut, Menu, X, PenSquare, BookOpen } from 'lucide-react'
+import { Home, Users, MessageCircle, User, LogOut, Menu, X, PenSquare, BookOpen, Settings } from 'lucide-react'
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { profile, signOut } = useAuth()
@@ -30,7 +30,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <div className="w-9 h-9 bg-gradient-to-br from-terracotta-400 to-terracotta-600 rounded-xl flex items-center justify-center">
               <BookOpen className="w-5 h-5 text-white" />
             </div>
-            <h1 className="text-xl font-bold text-stone-800">生活日志</h1>
+            <h1 className="text-xl font-bold text-stone-800">拾忆人生</h1>
           </div>
         </div>
 
@@ -49,6 +49,20 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <span className="font-medium">{item.label}</span>
             </Link>
           ))}
+          {/* 设置：指向个人资料页（昵称、头像等设置都在该页），独立入口方便找到 */}
+          <div className="pt-2 mt-2 border-t border-stone-100">
+            <Link
+              to="/profile"
+              className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 ${
+                location.pathname === '/profile'
+                  ? 'bg-terracotta-100 text-terracotta-700'
+                  : 'text-stone-600 hover:bg-stone-100'
+              }`}
+            >
+              <Settings className="w-5 h-5" />
+              <span className="font-medium">设置</span>
+            </Link>
+          </div>
         </nav>
 
         <div className="p-4 border-t border-stone-100">
@@ -82,7 +96,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <div className="w-8 h-8 bg-gradient-to-br from-terracotta-400 to-terracotta-600 rounded-lg flex items-center justify-center">
               <BookOpen className="w-4 h-4 text-white" />
             </div>
-            <h1 className="text-lg font-bold text-stone-800">生活日志</h1>
+            <h1 className="text-lg font-bold text-stone-800">拾忆人生</h1>
           </div>
           <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-2 hover:bg-stone-100 rounded-xl transition-colors">
             {mobileMenuOpen ? <X className="w-6 h-6 text-stone-700" /> : <Menu className="w-6 h-6 text-stone-700" />}
@@ -106,6 +120,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <span className="font-medium">{item.label}</span>
               </Link>
             ))}
+            <Link
+              to="/profile"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 ${
+                location.pathname === '/profile'
+                  ? 'bg-terracotta-100 text-terracotta-700'
+                  : 'text-stone-600'
+              }`}
+            >
+              <Settings className="w-5 h-5" />
+              <span className="font-medium">设置</span>
+            </Link>
             <button
               onClick={handleSignOut}
               className="w-full flex items-center gap-2 px-4 py-3 text-red-600"

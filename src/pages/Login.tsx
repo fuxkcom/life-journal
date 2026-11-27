@@ -54,7 +54,7 @@ export default function Login() {
           <div className="w-10 h-10 bg-gradient-to-br from-terracotta-400 to-terracotta-600 rounded-xl flex items-center justify-center">
             <BookOpen className="w-5 h-5 text-white" />
           </div>
-          <span className="font-semibold text-stone-800 text-xl">生活日志</span>
+          <span className="font-semibold text-stone-800 text-xl">拾忆人生</span>
         </Link>
 
         <div className="bg-white rounded-3xl shadow-soft p-8">

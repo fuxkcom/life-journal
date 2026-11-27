@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, memo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { supabase, Post, Profile, Comment, Mood } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { 
@@ -16,7 +16,6 @@ import {
   Sun as SunIcon, CloudSnow, CloudLightning, PlusCircle, Search, User,  
   Share2, MoreVertical, Camera
 } from 'lucide-react'
-import { Link } from 'react-router-dom'
 import Layout from '../components/Layout'
 import DateTime from '../components/DateTime'
 import Weather from '../components/Weather'
@@ -69,58 +68,6 @@ const CHINESE_JOKES = [
   "为什么数学书很伤心？因为它有太多问题。",
   "今天问Siri：生命的意义是什么？它说：我找到了一些网页，有些可能需要付费。",
   "为什么科学家不信任原子？因为它们构成了一切！",
-]
-
-// 备用新闻数据（当API失败时使用，图片使用稳定占位服务）
-const FALLBACK_NEWS = [
-  {
-    title: "我国成功发射遥感四十二号02星",
-    source: { name: "央视新闻" },
-    url: "https://news.cctv.com/",
-    urlToImage: "https://placehold.co/200x150/1e3a8a/ffffff?text=CCTV"
-  },
-  {
-    title: "全国人大代表建议减轻家庭养育负担",
-    source: { name: "人民日报" },
-    url: "https://www.people.com.cn/",
-    urlToImage: "https://placehold.co/200x150/b91c1c/ffffff?text=People"
-  },
-  {
-    title: "新能源汽车市场竞争加剧，多家车企宣布降价",
-    source: { name: "财新网" },
-    url: "https://www.caixin.com/",
-    urlToImage: "https://placehold.co/200x150/047857/ffffff?text=Caixin"
-  },
-  {
-    title: "清明假期全国铁路预计发送旅客7500万人次",
-    source: { name: "中国新闻网" },
-    url: "https://www.chinanews.com.cn/",
-    urlToImage: "https://placehold.co/200x150/a16207/ffffff?text=ChinaNews"
-  },
-  {
-    title: "国际金价再创新高，突破2300美元/盎司",
-    source: { name: "华尔街见闻" },
-    url: "https://wallstreetcn.com/",
-    urlToImage: "https://placehold.co/200x150/0f172a/ffffff?text=Wallstreet"
-  },
-  {
-    title: "淘宝宣布支持微信支付，互联互通再进一步",
-    source: { name: "界面新闻" },
-    url: "https://www.jiemian.com/",
-    urlToImage: "https://placehold.co/200x150/2563eb/ffffff?text=JieMian"
-  },
-  {
-    title: "华为三折叠手机预订量突破300万",
-    source: { name: "快科技" },
-    url: "https://www.techweb.com.cn/",
-    urlToImage: "https://placehold.co/200x150/16a34a/ffffff?text=Huawei"
-  },
-  {
-    title: "中秋国庆假期火车票开售，热门线路一票难求",
-    source: { name: "中国铁路" },
-    url: "http://www.12306.cn/",
-    urlToImage: "https://placehold.co/200x150/92400e/ffffff?text=Railway"
-  }
 ]
 
 // 缓存键
@@ -483,7 +430,6 @@ const RightSidebar = memo(() => {
   // ---------- 新闻相关 ----------
   const [newsList, setNewsList] = useState<NewsItem[]>([]);
   const [loadingNews, setLoadingNews] = useState(false);
-  const [usingFallback, setUsingFallback] = useState(false);
   const [newsError, setNewsError] = useState(false);
 
   // 获取真实新闻：每个源先试 rss2json，失败（含限流）自动切到 CORS 代理 + 本地 XML 解析；
@@ -529,7 +475,6 @@ const RightSidebar = memo(() => {
         .map(({ _pubDate, ...rest }) => rest);
 
       setNewsList(articles);
-      setUsingFallback(false);
       // 成功获取时写入缓存，供接口下次不可用时使用
       try {
         sessionStorage.setItem(
@@ -550,7 +495,6 @@ const RightSidebar = memo(() => {
           const { articles, timestamp } = JSON.parse(cached);
           if (Date.now() - timestamp < NEWS_CACHE_MAX_AGE && Array.isArray(articles) && articles.length > 0) {
             setNewsList(articles);
-            setUsingFallback(false);
             return;
           }
         }
@@ -558,8 +502,9 @@ const RightSidebar = memo(() => {
         // 缓存解析失败就直接走静态兜底
       }
 
-      setNewsList([...FALLBACK_NEWS].sort(() => Math.random() - 0.5));
-      setUsingFallback(true);
+      // 接口失败且无新鲜缓存：不再展示写死的过时精选内容，
+      // 列表留空，由渲染层显示“资讯暂不可用”的中性提示
+      setNewsList([]);
     } finally {
       setLoadingNews(false);
     }
@@ -656,11 +601,6 @@ const RightSidebar = memo(() => {
           <div className="flex items-center gap-2">
             <Newspaper className="w-5 h-5 text-terracotta-500" />
             <h3 className="font-semibold text-stone-900">实时资讯</h3>
-            {usingFallback && (
-              <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full" title="新闻接口暂时无法访问，当前展示的是精选内容">
-                精选
-              </span>
-            )}
           </div>
           <button
             onClick={fetchRealNews}
@@ -676,7 +616,11 @@ const RightSidebar = memo(() => {
           <div className="py-8 text-center text-stone-400">加载新闻中...</div>
         )}
 
-        {!loadingNews && (
+        {!loadingNews && newsError && (
+          <div className="py-8 text-center text-stone-400">资讯暂不可用，请稍后再试</div>
+        )}
+
+        {!loadingNews && !newsError && (
           <div className="max-h-96 overflow-y-auto pr-1 space-y-3 scrollbar-thin scrollbar-thumb-stone-200">
             {newsList.length === 0 ? (
               <div className="text-center py-8 text-stone-400">暂无新闻</div>
@@ -859,6 +803,9 @@ const RightSidebar = memo(() => {
 export default function Home() {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  // 从发布页带回来的刷新标记（NewPost 发布成功后设置）：跳过缓存直接拉新数据
+  const [publishSuccess, setPublishSuccess] = useState(false)
   const [posts, setPosts] = useState<(Post & { profile: Profile; comments: (Comment & { profile: Profile })[]; likes_count: number; is_liked: boolean })[]>([])
   const [loading, setLoading] = useState(true)
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({})
@@ -902,12 +849,9 @@ export default function Home() {
         loadActivities(),
         loadFriendMoods()
       ]);
-      
-      // 保存到缓存
-      if (user && posts.length > 0) {
-        saveToCache();
-      }
-      
+
+      // 缓存改由 posts 变化时的 useEffect 写回（这里的 posts 是调用时的旧闭包值，写了也无效）
+
     } catch (error) {
       console.error('加载数据失败:', error);
     } finally {
@@ -1016,14 +960,25 @@ export default function Home() {
 
     if (user && !hasInitialized.current) {
       hasInitialized.current = true;
-      
+
+      // 从发布页回来（带 refreshFeed 标记）：跳过缓存直接拉新数据，
+      // 否则首页会先恢复发帖前的旧缓存，新动态要等手动刷新才出现
+      const cameFromPublish = (location.state as { refreshFeed?: boolean } | null)?.refreshFeed
+      if (cameFromPublish) {
+        window.history.replaceState({}, '')
+        setPublishSuccess(true)
+        loadAllData()
+        return
+      }
+
       // 先尝试从缓存加载
       const cacheLoaded = loadFromCache();
-      
+
       if (cacheLoaded) {
         // 缓存加载成功，设置加载完成
+
         setLoading(false);
-        
+
         // 后台静默更新数据（用户无感知）
         setTimeout(() => {
           console.log('🔄 后台静默更新数据');
@@ -1034,15 +989,16 @@ export default function Home() {
         console.log('🔄 加载新数据');
         loadAllData();
       }
-      
-      // 组件卸载前保存数据
-      return () => {
-        if (user && posts.length > 0) {
-          saveToCache();
-        }
-      };
     }
   }, [user]);
+
+  // 动态列表变化时把最新数据写回缓存（用当前渲染的 posts，
+  // 而不是 loadAllData 闭包里调用时的旧值——原来那处保存基本写不进有效缓存）
+  useEffect(() => {
+    if (user && posts.length > 0) {
+      saveToCache();
+    }
+  }, [posts]);
 
   const loadStats = async () => {
     if (!user) return
@@ -1340,15 +1296,9 @@ export default function Home() {
       }))
   }, [moods])
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-screen">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-terracotta-500"></div>
-        </div>
-      </Layout>
-    )
-  }
+  // 注意：这里不再用全屏转圈阻塞整页。首屏先渲染页面骨架（侧边栏、发帖框等），
+  // 动态列表在数据回来前只在列表区域内显示一个小加载态；
+  // 有缓存时先渲染缓存内容，再静默更新。
 
   return (
     <Layout>
@@ -1606,6 +1556,16 @@ export default function Home() {
               </div>
             </div>
 
+            {/* 发布成功提示（从发布页带回） */}
+            {publishSuccess && (
+              <div className="mb-4 flex items-center justify-between bg-green-50 border border-green-200 text-green-700 rounded-2xl px-4 py-3">
+                <span>发布成功，已同步到动态列表</span>
+                <button onClick={() => setPublishSuccess(false)} className="text-sm text-green-500 hover:text-green-700">
+                  知道了
+                </button>
+              </div>
+            )}
+
             {/* 好友动态列表 */}
             <div>
               <div className="flex items-center justify-between mb-4">
@@ -1625,7 +1585,12 @@ export default function Home() {
                 </button>
               </div>
 
-              {posts.length === 0 ? (
+              {loading && posts.length === 0 ? (
+                <div className="text-center py-16 bg-white rounded-3xl shadow-soft">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-terracotta-500 mx-auto mb-4"></div>
+                  <p className="text-stone-400">动态加载中...</p>
+                </div>
+              ) : posts.length === 0 ? (
                 <div className="text-center py-16 bg-white rounded-3xl shadow-soft">
                   <div className="w-16 h-16 bg-terracotta-100 rounded-3xl flex items-center justify-center mx-auto mb-4">
                     <Image className="w-8 h-8 text-terracotta-500" />

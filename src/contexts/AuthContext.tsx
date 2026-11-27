@@ -38,12 +38,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const loadUser = async () => {
       setLoading(true)
       try {
-        const { data: { user } } = await supabase.auth.getUser()
-        setUser(user)
-        if (user) {
-          await fetchProfile(user.id)
+        // 首屏鉴权改用 getSession：它只读本地存储的会话，不发网络请求，
+        // 不用等 Supabase 鉴权接口返回；个人资料在后台拉取，不阻塞首屏渲染。
+        // （原来用 getUser()，每次打开/刷新页面都要等一次网络往返 + 查 profiles，
+        //  所有路由都卡在 PageLoader 转圈上，是每页转几秒的主因。）
+        const { data: { session } } = await supabase.auth.getSession()
+        setUser(session?.user ?? null)
+        setLoading(false)
+        if (session?.user) {
+          fetchProfile(session.user.id)
         }
-      } finally {
+      } catch {
         setLoading(false)
       }
     }

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { BookOpen, ArrowLeft } from 'lucide-react'
 
-// 服务条款：与“生活日志”（私密生活记录 + 好友分享）应用的实际功能相符。
+// 服务条款：与“拾忆人生”（私密生活记录 + 好友分享）应用的实际功能相符。
 // 注意：本页为通用中文条款文本，不构成法律意见；正式商用前建议请专业人士审阅。
 // 联系方式未写具体邮箱——代码库中没有公开的联系邮箱，不编造，统一写“应用内反馈”。
 export default function Terms() {
@@ -13,7 +13,7 @@ export default function Terms() {
             <div className="w-9 h-9 bg-gradient-to-br from-terracotta-400 to-terracotta-600 rounded-xl flex items-center justify-center">
               <BookOpen className="w-5 h-5 text-white" />
             </div>
-            <span className="font-semibold text-stone-800 text-lg">生活日志</span>
+            <span className="font-semibold text-stone-800 text-lg">拾忆人生</span>
           </Link>
           <Link to="/welcome" className="inline-flex items-center gap-1 text-sm text-stone-600 hover:text-terracotta-600">
             <ArrowLeft className="w-4 h-4" />
@@ -31,7 +31,7 @@ export default function Terms() {
             <section>
               <h2 className="text-xl font-semibold text-stone-900 mb-3">一、服务内容</h2>
               <p>
-                「生活日志」是一款私密生活记录应用。你可以记录文字与图片日志，邀请亲密好友加入你的圈子，
+                「拾忆人生」是一款私密生活记录应用。你可以记录文字与图片日志，邀请亲密好友加入你的圈子，
                 与好友分享生活动态并进行私密对话。我们会尽力保持服务稳定可用，但不承诺服务永不中断或完全没有差错。
               </p>
             </section>

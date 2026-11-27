@@ -14,7 +14,7 @@ export default function Landing() {
               <div className="w-9 h-9 bg-gradient-to-br from-terracotta-400 to-terracotta-600 rounded-xl flex items-center justify-center">
                 <BookOpen className="w-5 h-5 text-white" />
               </div>
-              <span className="font-semibold text-stone-800 text-lg">生活日志</span>
+              <span className="font-semibold text-stone-800 text-lg">拾忆人生</span>
             </div>
             <div className="flex items-center gap-3">
               {/* 锚点导航：指向首页对应板块；小屏隐藏，避免挤占登录/注册按钮 */}
@@ -174,7 +174,7 @@ export default function Landing() {
             <div className="w-8 h-8 bg-gradient-to-br from-terracotta-400 to-terracotta-600 rounded-lg flex items-center justify-center">
               <BookOpen className="w-4 h-4 text-white" />
             </div>
-            <span className="font-medium text-stone-700">生活日志</span>
+            <span className="font-medium text-stone-700">拾忆人生</span>
           </div>
           <nav className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm">
             <a href="#features" className="text-stone-500 hover:text-terracotta-600 transition-colors">功能</a>

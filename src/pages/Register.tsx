@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import { useAuth } from '../contexts/AuthContext'
 import {
   Mail, Lock, User, UserPlus, BookOpen, Eye, EyeOff,
-  CheckCircle, XCircle, AlertCircle, Loader2
+  CheckCircle, XCircle, AlertCircle, Loader2, MailCheck
 } from 'lucide-react'
 
 // ---------- Zod 校验 Schema ----------
@@ -19,7 +19,12 @@ const registerSchema = z.object({
     .min(1, '请输入邮箱地址')
     .email('邮箱格式不正确'),
   password: z.string()
-    .min(6, '密码至少需要6个字符')
+    .min(6, '密码至少需要6个字符'),
+  confirmPassword: z.string()
+    .min(1, '请再次输入密码'),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: '两次输入的密码不一致',
+  path: ['confirmPassword'],
 })
 
 type RegisterFormData = z.infer<typeof registerSchema>
@@ -130,15 +135,18 @@ const PasswordStrengthIndicator = ({ password }: { password: string }) => {
 
 // ---------- 主组件 ----------
 export default function Register() {
-  const navigate = useNavigate()
   const { signUp } = useAuth()
   const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  // 注册成功后展示的邮箱地址（成功态用页面内展示，不只靠 toast 一闪而过）
+  const [registeredEmail, setRegisteredEmail] = useState<string | null>(null)
 
   const {
     register,
     handleSubmit,
     watch,
+    trigger,
     formState: { errors, touchedFields, isValid },
     setError,
     clearErrors,
@@ -168,8 +176,10 @@ export default function Register() {
           setError('root', { type: 'manual', message: localized })
         }
       } else {
+        // 注册成功：不再静默跳回首页，改在页面内明确告诉用户
+        // 下一步是去邮箱点验证链接（Supabase 要求邮箱验证后才能登录）
         reset()
-        navigate('/')
+        setRegisteredEmail(data.email)
       }
     } catch (err: any) {
       setError('root', { type: 'manual', message: localizeError(err.message) })
@@ -184,6 +194,52 @@ export default function Register() {
     if (errors.root) clearErrors('root')
   }
 
+  // 注册成功态：页面内明确提示去邮箱验证，不静默跳转
+  if (registeredEmail) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-stone-50 to-stone-100 flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <Link to="/welcome" className="flex items-center justify-center gap-3 mb-8 group">
+            <div className="w-12 h-12 bg-gradient-to-br from-terracotta-400 to-terracotta-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow">
+              <BookOpen className="w-6 h-6 text-white" />
+            </div>
+            <div className="text-left">
+              <span className="block font-bold text-2xl text-stone-800 tracking-tight">拾忆人生</span>
+              <p className="text-sm text-stone-500">记录生活的每一刻</p>
+            </div>
+          </Link>
+
+          <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-soft-xl border border-white/40 p-8 text-center">
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-5">
+              <MailCheck className="w-8 h-8 text-green-600" />
+            </div>
+            <h1 className="text-2xl font-bold text-stone-900 mb-3">注册成功！</h1>
+            <p className="text-stone-600 leading-relaxed mb-2">
+              验证邮件已发送到
+              <span className="font-medium text-stone-900 break-all"> {registeredEmail} </span>
+            </p>
+            <p className="text-stone-500 text-sm leading-relaxed mb-8">
+              请打开邮箱，点击邮件中的验证链接完成验证，然后再登录。
+              如果没有收到邮件，请检查垃圾邮件文件夹。
+            </p>
+            <Link
+              to="/login"
+              className="block w-full bg-gradient-to-r from-terracotta-500 to-terracotta-600 hover:from-terracotta-600 hover:to-terracotta-700 text-white py-4 rounded-2xl font-medium transition-all duration-300 text-center"
+            >
+              去登录
+            </Link>
+            <button
+              onClick={() => setRegisteredEmail(null)}
+              className="mt-4 text-sm text-stone-500 hover:text-stone-700 transition-colors"
+            >
+              返回注册
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-stone-50 to-stone-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -194,7 +250,7 @@ export default function Register() {
           </div>
           <div className="text-left">
             {/* 此处原为 h1，与下方“创建账户”重复成一页两个 h1；改为普通文本，只留一个 h1 */}
-            <span className="block font-bold text-2xl text-stone-800 tracking-tight">生活日志</span>
+            <span className="block font-bold text-2xl text-stone-800 tracking-tight">拾忆人生</span>
             <p className="text-sm text-stone-500">记录生活的每一刻</p>
           </div>
         </Link>
@@ -322,7 +378,12 @@ export default function Register() {
                 </div>
                 <input
                   {...register('password')}
-                  onChange={(e) => { register('password').onChange(e); handleFieldChange('password') }}
+                  onChange={(e) => {
+                    register('password').onChange(e)
+                    handleFieldChange('password')
+                    // 密码改了之后，重新校验确认密码，避免“不一致”提示过期
+                    if (watch('confirmPassword')) trigger('confirmPassword')
+                  }}
                   type={showPassword ? 'text' : 'password'}
                   className={`w-full pl-12 pr-12 py-3.5 bg-stone-50/50 border rounded-2xl focus:ring-2 focus:ring-terracotta-500/20 focus:border-terracotta-400 transition-all duration-300 ${
                     errors.password && touchedFields.password
@@ -345,6 +406,45 @@ export default function Register() {
 
               {/* 密码强度指示器 */}
               <PasswordStrengthIndicator password={password} />
+            </div>
+
+            {/* 确认密码 */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-stone-700">
+                确认密码
+                {touchedFields.confirmPassword && errors.confirmPassword && (
+                  <span className="text-red-500 text-xs ml-2">{errors.confirmPassword.message}</span>
+                )}
+              </label>
+              <div className="relative group">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2">
+                  <Lock className={`w-5 h-5 transition-colors ${errors.confirmPassword && touchedFields.confirmPassword ? 'text-red-400' : 'text-stone-400 group-focus-within:text-terracotta-500'}`} />
+                </div>
+                <input
+                  {...register('confirmPassword')}
+                  onChange={(e) => { register('confirmPassword').onChange(e); handleFieldChange('confirmPassword') }}
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  className={`w-full pl-12 pr-12 py-3.5 bg-stone-50/50 border rounded-2xl focus:ring-2 focus:ring-terracotta-500/20 focus:border-terracotta-400 transition-all duration-300 ${
+                    errors.confirmPassword && touchedFields.confirmPassword
+                      ? 'border-red-300 focus:border-red-400 focus:ring-red-500/20'
+                      : 'border-stone-200'
+                  }`}
+                  placeholder="请再次输入密码"
+                  disabled={isSubmitting}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-stone-400 hover:text-stone-600 transition-colors"
+                  aria-label={showConfirmPassword ? '隐藏确认密码' : '显示确认密码'}
+                  disabled={isSubmitting}
+                >
+                  {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+              {touchedFields.confirmPassword && watch('confirmPassword') && !errors.confirmPassword && (
+                <p className="text-xs text-green-600 px-1">两次密码输入一致</p>
+              )}
             </div>
 
             {/* 提交按钮 */}

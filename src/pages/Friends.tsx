@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase, Profile, Friendship } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { Search, UserPlus, Check, X, Copy, Link as LinkIcon, Users } from 'lucide-react'
@@ -13,6 +13,17 @@ export default function Friends() {
   const [searchResults, setSearchResults] = useState<Profile[]>([])
   const [searching, setSearching] = useState(false)
   const [inviteLink, setInviteLink] = useState('')
+  // 复制反馈：按钮变“已复制”2 秒；失败时页面内提示，不用 alert
+  // （alert 在部分浏览器/无头环境下不弹出，用户看不到任何反馈）
+  const [copied, setCopied] = useState(false)
+  const [copyError, setCopyError] = useState(false)
+  const copyTimerRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (copyTimerRef.current) window.clearTimeout(copyTimerRef.current)
+    }
+  }, [])
 
   useEffect(() => {
     if (user) {
@@ -93,9 +104,30 @@ export default function Friends() {
     }
   }
 
-  const copyInviteLink = () => {
-    navigator.clipboard.writeText(inviteLink)
-    alert('邀请链接已复制')
+  const copyInviteLink = async () => {
+    setCopyError(false)
+    try {
+      await navigator.clipboard.writeText(inviteLink)
+    } catch {
+      // 剪贴板 API 不可用时的后备方案（旧浏览器 / 权限被拒）
+      try {
+        const textarea = document.createElement('textarea')
+        textarea.value = inviteLink
+        textarea.style.position = 'fixed'
+        textarea.style.opacity = '0'
+        document.body.appendChild(textarea)
+        textarea.select()
+        const ok = document.execCommand('copy')
+        document.body.removeChild(textarea)
+        if (!ok) throw new Error('copy failed')
+      } catch {
+        setCopyError(true)
+        return
+      }
+    }
+    setCopied(true)
+    if (copyTimerRef.current) window.clearTimeout(copyTimerRef.current)
+    copyTimerRef.current = window.setTimeout(() => setCopied(false), 2000)
   }
 
   return (
@@ -138,12 +170,17 @@ export default function Friends() {
             />
             <button
               onClick={copyInviteLink}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg flex items-center gap-2 hover:bg-indigo-700"
+              className={`px-4 py-2 text-white rounded-lg flex items-center gap-2 transition-colors ${
+                copied ? 'bg-green-600 hover:bg-green-700' : 'bg-indigo-600 hover:bg-indigo-700'
+              }`}
             >
-              <Copy className="w-4 h-4" />
-              复制
+              {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              {copied ? '已复制' : '复制'}
             </button>
           </div>
+          {copyError && (
+            <p className="text-sm text-red-500 mt-2">复制失败，请长按链接手动复制</p>
+          )}
         </div>
 
         {/* Friends List */}

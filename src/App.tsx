@@ -22,19 +22,19 @@ const NotFound = lazy(() => import('./pages/NotFound'))
 // 各公开页面的独立标题：路由变化时同步更新 document.title，
 // 避免所有页面共用同一个标题（不利于 SEO 与浏览器标签页识别）。
 const PAGE_TITLES: Record<string, string> = {
-  '/welcome': '生活日志 - 记录美好生活',
-  '/login': '登录 - 生活日志',
-  '/register': '注册 - 生活日志',
-  '/forgot-password': '找回密码 - 生活日志',
-  '/reset-password': '重置密码 - 生活日志',
-  '/terms': '服务条款 - 生活日志',
-  '/privacy': '隐私政策 - 生活日志',
+  '/welcome': '拾忆人生 - 记录美好生活',
+  '/login': '登录 - 拾忆人生',
+  '/register': '注册 - 拾忆人生',
+  '/forgot-password': '找回密码 - 拾忆人生',
+  '/reset-password': '重置密码 - 拾忆人生',
+  '/terms': '服务条款 - 拾忆人生',
+  '/privacy': '隐私政策 - 拾忆人生',
 }
 
 function usePageTitle() {
   const { pathname } = useLocation()
   useEffect(() => {
-    document.title = PAGE_TITLES[pathname] ?? '生活日志 - 记录美好生活'
+    document.title = PAGE_TITLES[pathname] ?? '拾忆人生 - 记录美好生活'
   }, [pathname])
 }
 
