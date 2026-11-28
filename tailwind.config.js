@@ -90,12 +90,18 @@ module.exports = {
 			fontFamily: {
 				// 正文：Noto Sans SC，中文渲染更规整，配合 Inter 作为数字/拉丁字符补充；
 				// Google Fonts 加载失败时回退到苹方 / 微软雅黑，依然是圆润的中文黑体，不会变丑。
-				sans: ['"Noto Sans SC"', '"PingFang SC"', '"Microsoft YaHei"', 'Inter', 'system-ui', '-apple-system', 'sans-serif'],
+				sans: [
+				'"PingFang SC"', '"Hiragino Sans GB"', '"Microsoft YaHei"', '"Noto Sans SC"', 'system-ui', '-apple-system', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif',
+			],
 				// 标题：中文衬线字体，日记本封面/标题的质感；
 				// 加载失败时回退到宋体（宋體 / STSong），仍保留衬线文艺气。
-				serif: ['"Noto Serif SC"', '"Songti SC"', '"STSong"', 'Georgia', 'serif'],
+				serif: [
+				'"Songti SC"', '"STSong"', '"Noto Serif SC"', 'SimSun', 'Georgia', '"Times New Roman"', 'serif',
+			],
 				// 手写体：日期戳、心情标签等点缀元素，呼应"手写日记"的主题
-				hand: ['"Zhi Mang Xing"', '"Noto Sans SC"', 'cursive'],
+				hand: [
+				'"Kaiti SC"', '"STKaiti"', '"KaiTi"', '"Noto Sans SC"', 'cursive',
+			],
 			},
 			boxShadow: {
 				// 暖色阴影：陶土橘的柔光，卡片浮在奶油底色上更温润

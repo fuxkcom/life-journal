@@ -1,0 +1,18 @@
+{
+  "name": "拾忆人生 - 记录美好生活",
+  "short_name": "拾忆人生",
+  "description": "拾忆人生是一个温馨私密的生活记录应用：用文字和图片记录日常点滴，邀请亲密好友加入圈子，一起分享生活、互相陪伴。",
+  "lang": "zh-CN",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FAF4E6",
+  "theme_color": "#B4502F",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

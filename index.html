@@ -7,30 +7,104 @@
   <title>拾忆人生 - 记录美好生活</title>
   <meta name="description" content="拾忆人生是一个温馨私密的生活记录应用：用文字和图片记录日常点滴，邀请亲密好友加入圈子，一起分享生活、互相陪伴。" />
   <meta name="theme-color" content="#B4502F" />
+  <meta name="color-scheme" content="light" />
   <link rel="canonical" href="https://fuxk.indevs.in/" />
 
+  <!-- 图标 / PWA -->
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/manifest.webmanifest" />
 
-  <!-- 字体：中文衬线（标题）+ 中文黑体（正文）+ 行书手写体（日期/心情等点缀元素）；
-       display=swap 保证字体未加载完时先用系统字体显示，不白屏；
-       衬线加到 900 字重（大标题更有分量），黑体加到 700（加粗正文不断层） -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;600;700;900&family=Noto+Sans+SC:wght@400;500;700&family=Zhi+Mang+Xing&display=swap" rel="stylesheet">
+  <!-- 字体：使用系统自带中文字体（苹方 / 微软雅黑 / 宋体 / 楷体），
+       不请求 Google Fonts、不下载网络字体——中国大陆访问稳定、零字体流量、首屏即时。
+       字体栈见 src/index.css 与 tailwind.config.js。 -->
 
   <!-- 提前建立与 Supabase 的连接，减少首次请求的握手延迟 -->
   <link rel="preconnect" href="https://srbhrbkwwmlkkrivbvby.supabase.co" crossorigin />
   <link rel="dns-prefetch" href="https://srbhrbkwwmlkkrivbvby.supabase.co" />
 
-  <!-- Open Graph：分享到微信/社交平台时展示标题、描述 -->
+  <!-- Open Graph：分享到微信/社交平台时展示标题、描述、配图 -->
+  <meta property="og:site_name" content="拾忆人生" />
+  <meta property="og:locale" content="zh_CN" />
   <meta property="og:title" content="拾忆人生 - 记录美好生活" />
   <meta property="og:description" content="拾忆人生是一个温馨私密的生活记录应用：用文字和图片记录日常点滴，邀请亲密好友加入圈子，一起分享生活、互相陪伴。" />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://fuxk.indevs.in/" />
+  <meta property="og:image" content="https://fuxk.indevs.in/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:image:alt" content="拾忆人生 - 记录美好生活" />
+
+  <!-- Twitter / X 卡片 -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="拾忆人生 - 记录美好生活" />
+  <meta name="twitter:description" content="拾忆人生是一个温馨私密的生活记录应用：用文字和图片记录日常点滴，邀请亲密好友加入圈子，一起分享生活、互相陪伴。" />
+  <meta name="twitter:image" content="https://fuxk.indevs.in/og-image.png" />
+
+  <!-- 结构化数据（JSON-LD）：帮助搜索引擎理解这是一个 Web 应用站点 -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "name": "拾忆人生",
+        "url": "https://fuxk.indevs.in/",
+        "inLanguage": "zh-CN"
+      },
+      {
+        "@type": "WebApplication",
+        "name": "拾忆人生",
+        "url": "https://fuxk.indevs.in/",
+        "applicationCategory": "LifestyleApplication",
+        "operatingSystem": "Web",
+        "inLanguage": "zh-CN",
+        "description": "拾忆人生是一个温馨私密的生活记录应用：用文字和图片记录日常点滴，邀请亲密好友加入圈子，一起分享生活、互相陪伴。",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "CNY" }
+      }
+    ]
+  }
+  </script>
+
+  <!-- 首屏骨架：CSS 内联，在 JS/CSS 下载执行前就渲染出画面，消除白屏（FCP）。
+       React 挂载后会整体替换 #root 的内容，这个骨架随之消失。 -->
+  <style>
+    html, body { margin: 0; padding: 0; background: #FAF4E6; }
+    .ljs-splash {
+      position: fixed; inset: 0; z-index: 1;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+      background: #FAF4E6; color: #7E371F;
+      font-family: 'Noto Sans SC Variable', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+    }
+    .ljs-splash .ljs-mark {
+      width: 56px; height: 56px; border-radius: 16px;
+      background: linear-gradient(135deg, #C96A42, #9C4426);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 10px 30px rgba(180, 80, 47, 0.25);
+    }
+    .ljs-splash .ljs-name { font-size: 19px; letter-spacing: 0.14em; font-weight: 600; }
+    .ljs-splash .ljs-spin {
+      width: 24px; height: 24px; border-radius: 50%;
+      border: 2.5px solid rgba(180, 80, 47, 0.18); border-top-color: #B4502F;
+      animation: ljs-spin 0.8s linear infinite;
+    }
+    @keyframes ljs-spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .ljs-spin { animation: none; } }
+  </style>
 </head>
 
 <body>
-  <div id="root"></div>
+  <div id="root"><!--root-html-start--><div class="ljs-splash" role="status" aria-label="拾忆人生 正在加载">
+    <div class="ljs-mark">
+      <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 7v14" />
+        <path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" />
+      </svg>
+    </div>
+    <div class="ljs-name">拾忆人生</div>
+    <div class="ljs-spin"></div>
+  </div><!--root-html-end--></div>
   <script type="module" src="/src/main.tsx"></script>
 </body>
 
