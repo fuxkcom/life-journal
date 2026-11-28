@@ -43,7 +43,7 @@ img {
    圆润黑体 + 衬线标题，不会变丑。 */
 
 body {
-  font-family: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', Inter, system-ui, -apple-system, sans-serif;
+  font-family: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   background-color: #FAF4E6;
   color: #2C2722;
 }
@@ -84,12 +84,12 @@ body {
 
 /* 标题统一使用中文衬线字体 */
 .journal-title {
-  font-family: 'Noto Serif SC', 'Songti SC', 'STSong', Georgia, serif;
+  font-family: 'Songti SC', 'STSong', 'Noto Serif SC', SimSun, Georgia, 'Times New Roman', serif;
 }
 
 /* 手写体点缀：日期戳、心情标签、每日一句等 */
 .journal-hand {
-  font-family: 'Zhi Mang Xing', 'Noto Sans SC', cursive;
+  font-family: 'Kaiti SC', 'STKaiti', 'KaiTi', 'Noto Sans SC', cursive;
 }
 
 /* 笔记本页边线：卡片左侧一道陶土橘竖线，呼应横线笔记本的装订边，

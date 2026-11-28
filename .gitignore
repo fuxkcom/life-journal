@@ -1,0 +1,13 @@
+# 依赖与本地文件（不要提交）
+node_modules/
+*.log
+.DS_Store
+
+# 本地环境变量（含密钥，切勿提交）。CI 通过 GitHub Secrets 注入，不依赖它。
+.env
+.env.local
+.env.*.local
+
+# 说明：dist/ 目前仍在仓库中被跟踪，但 GitHub Actions 部署时会重新构建并上传，
+# 仓库里的 dist 实际不会被发布。若想让仓库更干净，可执行：
+#   git rm -r --cached dist && echo 'dist/' >> .gitignore
